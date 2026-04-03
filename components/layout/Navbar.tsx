@@ -55,8 +55,10 @@ export default function Navbar() {
   };
 
   const getDashboardLink = () => {
-    if (user?.role === 'ADMIN') return '/admin/dashboard';
-    if (user?.role === 'DEALER') return '/dealer/dashboard';
+    // if (user?.role === 'ADMIN') return '/admin/dashboard';
+    if (user?.role === 'ADMIN') return '/admin/categories';
+    // if (user?.role === 'DEALER') return '/dealer/dashboard';
+    if (user?.role === 'DEALER') return '/dealer/products';
     return '/profile';
   };
 
