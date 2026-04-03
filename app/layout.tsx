@@ -3,6 +3,9 @@ import { Inter } from 'next/font/google';
 import './globals.css';
 import ReduxProvider from '@/store/ReduxProvider';
 
+// Tell Vercel to use the Edge network to bypass the 12 Node.js function limit
+export const runtime = 'edge';
+
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
