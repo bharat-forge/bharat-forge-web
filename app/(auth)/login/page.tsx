@@ -30,8 +30,10 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (isAuthenticated && user) {
-      if (user.role === 'ADMIN') router.replace('/admin/dashboard');
-      else if (user.role === 'DEALER') router.replace('/dealer/dashboard');
+      // if (user.role === 'ADMIN') router.replace('/admin/dashboard');
+      // else if (user.role === 'DEALER') router.replace('/dealer/dashboard');
+      if (user.role === 'ADMIN') router.replace('/admin/categories');
+      else if (user.role === 'DEALER') router.replace('/dealer/products');
       else router.replace('/shop');
     }
   }, [isAuthenticated, user, router]);

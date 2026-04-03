@@ -31,7 +31,8 @@ export default function DealerLayout({ children }: { children: React.ReactNode }
         if (!isApproved && pathname !== '/dealer/verification') {
           router.replace('/dealer/verification');
         } else if (isApproved && pathname === '/dealer/verification') {
-          router.replace('/dealer/dashboard');
+          // router.replace('/dealer/dashboard');
+          router.replace('/dealer/products');
         }
       } catch (error) {
         console.error('Failed to fetch dealer status');

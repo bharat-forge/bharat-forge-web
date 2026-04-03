@@ -92,7 +92,8 @@ const handleVerifyOTP = async (e: React.FormEvent) => {
       dispatch(updateUserMetadata(data.metadata));
       
       if (role === 'DEALER') {
-        router.push('/dealer/dashboard');
+        // router.push('/dealer/dashboard');
+        router.push('/dealer/products');
       } else {
         router.push('/shop');
       }

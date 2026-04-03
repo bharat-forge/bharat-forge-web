@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { getVerificationRequirements, submitVerificationData } from '@/api/dealer/verification';
-import { Loader2, UploadCloud, AlertCircle, CheckCircle2, Clock, XCircle } from 'lucide-react';
+import { Loader2, UploadCloud, AlertCircle, CheckCircle2, Clock } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 export default function DealerVerificationPage() {
@@ -11,6 +11,9 @@ export default function DealerVerificationPage() {
   const [loading, setLoading] = useState(true);
   const [submitLoaders, setSubmitLoaders] = useState<{ [key: string]: boolean }>({});
   const [error, setError] = useState('');
+  
+  const [selectedFiles, setSelectedFiles] = useState<{ [key: string]: File | null }>({});
+  const [filePreviews, setFilePreviews] = useState<{ [key: string]: string }>({});
 
   const fetchRequirements = async () => {
     try {
@@ -28,6 +31,30 @@ export default function DealerVerificationPage() {
     fetchRequirements();
   }, []);
 
+  useEffect(() => {
+    return () => {
+      Object.values(filePreviews).forEach(url => URL.revokeObjectURL(url));
+    };
+  }, [filePreviews]);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, blueprintId: string) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      setSelectedFiles(prev => ({ ...prev, [blueprintId]: file }));
+
+      if (file.type.startsWith('image/')) {
+        const previewUrl = URL.createObjectURL(file);
+        setFilePreviews(prev => ({ ...prev, [blueprintId]: previewUrl }));
+      } else {
+        setFilePreviews(prev => {
+          const newPreviews = { ...prev };
+          delete newPreviews[blueprintId];
+          return newPreviews;
+        });
+      }
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent, blueprintId: string, type: string) => {
     e.preventDefault();
     setSubmitLoaders(prev => ({ ...prev, [blueprintId]: true }));
@@ -37,14 +64,15 @@ export default function DealerVerificationPage() {
       const formData = new FormData();
       formData.append('blueprintId', blueprintId);
 
-      const target = e.target as HTMLFormElement;
-      
       if (type === 'FILE') {
-        const fileInput = target.querySelector('input[type="file"]') as HTMLInputElement;
-        if (fileInput.files?.[0]) {
-          formData.append('file', fileInput.files[0]);
+        const file = selectedFiles[blueprintId];
+        if (file) {
+          formData.append('file', file);
+        } else {
+          throw new Error('Please select a file to upload.');
         }
       } else {
+        const target = e.target as HTMLFormElement;
         const textInput = target.querySelector('input[type="text"]') as HTMLInputElement;
         if (textInput.value) {
           formData.append('textValue', textInput.value);
@@ -52,9 +80,17 @@ export default function DealerVerificationPage() {
       }
 
       await submitVerificationData(formData);
+      
+      setSelectedFiles(prev => ({ ...prev, [blueprintId]: null }));
+      setFilePreviews(prev => {
+        const newPreviews = { ...prev };
+        delete newPreviews[blueprintId];
+        return newPreviews;
+      });
+      
       await fetchRequirements();
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to submit document');
+      setError(err.response?.data?.message || err.message || 'Failed to submit document');
     } finally {
       setSubmitLoaders(prev => ({ ...prev, [blueprintId]: false }));
     }
@@ -125,12 +161,35 @@ export default function DealerVerificationPage() {
                   <div className="w-full md:w-auto md:min-w-[320px]">
                     <form onSubmit={(e) => handleSubmit(e, blueprint.id, blueprint.type)} className="flex flex-col gap-3">
                       {blueprint.type === 'FILE' ? (
-                        <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-slate-300 rounded-xl cursor-pointer hover:bg-slate-50 transition-colors">
-                          <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                            <UploadCloud className="w-8 h-8 text-slate-400 mb-2" />
-                            <p className="text-sm text-slate-500 font-medium">Click to upload PDF/Image</p>
-                          </div>
-                          <input type="file" className="hidden" required accept=".pdf,.png,.jpg,.jpeg" />
+                        <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-slate-300 rounded-xl cursor-pointer hover:bg-slate-50 transition-colors overflow-hidden">
+                          {selectedFiles[blueprint.id] ? (
+                            <div className="relative w-full h-full p-2 flex flex-col items-center justify-center text-center">
+                              {filePreviews[blueprint.id] ? (
+                                <img
+                                  src={filePreviews[blueprint.id]}
+                                  alt="Preview"
+                                  className="w-full h-full object-contain rounded-lg"
+                                />
+                              ) : (
+                                <>
+                                  <CheckCircle2 className="w-8 h-8 text-emerald-500 mb-2" />
+                                  <p className="text-sm text-slate-700 font-bold truncate w-full px-4">{selectedFiles[blueprint.id]?.name}</p>
+                                </>
+                              )}
+                            </div>
+                          ) : (
+                            <div className="flex flex-col items-center justify-center pt-5 pb-6 px-4 text-center">
+                              <UploadCloud className="w-8 h-8 text-slate-400 mb-2" />
+                              <p className="text-sm text-slate-500 font-medium">Click to upload PDF/Image</p>
+                            </div>
+                          )}
+                          <input 
+                            type="file" 
+                            className="hidden" 
+                            required={!selectedFiles[blueprint.id]}
+                            accept=".pdf,.png,.jpg,.jpeg" 
+                            onChange={(e) => handleFileChange(e, blueprint.id)}
+                          />
                         </label>
                       ) : (
                         <input type="text" required placeholder={`Enter ${blueprint.name}`} className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-sky-500/20" />

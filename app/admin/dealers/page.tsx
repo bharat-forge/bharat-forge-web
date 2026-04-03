@@ -42,6 +42,9 @@ export default function AdminDealersPage() {
   const [selectedDealer, setSelectedDealer] = useState<any>(null);
   const [complianceData, setComplianceData] = useState<any[]>([]);
   const [complianceLoading, setComplianceLoading] = useState(false);
+  
+  // NEW: State to handle document previews
+  const [previewSubmission, setPreviewSubmission] = useState<{ url: string, type: 'IMAGE' | 'PDF' | 'OTHER', reqName: string } | null>(null);
 
   const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
   const [statusFormData, setStatusFormData] = useState({ status: 'APPROVED', reason: '' });
@@ -98,6 +101,7 @@ export default function AdminDealersPage() {
   const handleOpenCompliance = async (dealer: any) => {
     setSelectedDealer(dealer);
     setIsComplianceModalOpen(true);
+    setPreviewSubmission(null); // Reset preview on open
     setComplianceLoading(true);
     setError('');
     try {
@@ -108,6 +112,23 @@ export default function AdminDealersPage() {
     } finally {
       setComplianceLoading(false);
     }
+  };
+
+  const handleCloseCompliance = () => {
+    setIsComplianceModalOpen(false);
+    setTimeout(() => setPreviewSubmission(null), 300); // Wait for animation
+  };
+
+  const handleOpenPreview = (url: string, name: string) => {
+    const lowerUrl = url.toLowerCase();
+    // Basic heuristic to guess file type from URL
+    const isPdf = lowerUrl.includes('.pdf');
+    const isImage = lowerUrl.match(/\.(jpeg|jpg|gif|png|webp)/);
+    setPreviewSubmission({
+      url,
+      type: isPdf ? 'PDF' : isImage ? 'IMAGE' : 'OTHER',
+      reqName: name
+    });
   };
 
   const handleReviewSubmission = async (submissionId: string, status: string, adminRemarks: string) => {
@@ -438,96 +459,158 @@ export default function AdminDealersPage() {
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="bg-white rounded-3xl shadow-2xl w-full max-w-5xl overflow-hidden max-h-[90vh] flex flex-col"
+              className="bg-slate-50 rounded-3xl shadow-2xl w-full max-w-5xl overflow-hidden h-[85vh] flex flex-col"
             >
-              <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50 flex-shrink-0">
+              <div className="p-6 border-b border-slate-200 flex items-center justify-between bg-white flex-shrink-0 z-20">
                 <div>
                   <h2 className="text-xl font-black text-slate-900">Dealer Compliance Review</h2>
                   <p className="text-sm text-slate-500 font-medium mt-1">{selectedDealer.businessName}</p>
                 </div>
-                <button onClick={() => setIsComplianceModalOpen(false)} className="text-slate-400 hover:text-slate-600 bg-white p-2 rounded-full shadow-sm">
+                <button onClick={handleCloseCompliance} className="text-slate-400 hover:text-slate-600 bg-slate-50 p-2 rounded-full shadow-sm border border-slate-200">
                   <X className="w-5 h-5" />
                 </button>
               </div>
 
-              <div className="p-0 overflow-y-auto flex-1">
-                {error && <div className="m-6 p-4 bg-rose-50 text-rose-700 rounded-xl text-sm font-medium">{error}</div>}
-                
-                <table className="w-full text-left border-collapse">
-                  <thead className="sticky top-0 bg-white shadow-sm z-10">
-                    <tr className="bg-slate-50/90 backdrop-blur border-b border-slate-100 text-xs uppercase tracking-wider text-slate-500 font-bold">
-                      <th className="p-4 pl-6">Requirement</th>
-                      <th className="p-4">Submission</th>
-                      <th className="p-4">Status</th>
-                      <th className="p-4 pr-6">Action</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {complianceLoading ? (
-                       <tr><td colSpan={4} className="p-12 text-center text-slate-400">Loading compliance data...</td></tr>
-                    ) : complianceData.length === 0 ? (
-                       <tr><td colSpan={4} className="p-12 text-center text-slate-400">No active blueprints required.</td></tr>
-                    ) : (
-                      complianceData.map((req, idx) => (
-                        <tr key={idx} className="hover:bg-slate-50/50">
-                          <td className="p-4 pl-6">
-                            <p className="text-sm font-bold text-slate-900">{req.name}</p>
-                            <div className="flex items-center gap-2 mt-1">
-                              <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded">{req.type}</span>
-                              {req.isRequired && <span className="text-[10px] font-bold text-rose-600 bg-rose-50 px-2 py-0.5 rounded">REQUIRED</span>}
-                            </div>
-                          </td>
-                          <td className="p-4">
-                            {!req.submissionId ? (
-                              <span className="text-sm text-slate-400 italic">Not submitted yet</span>
-                            ) : req.type === 'FILE' ? (
-                              <a href={req.submittedValue} target="_blank" rel="noreferrer" className="text-sm font-bold text-sky-600 hover:text-sky-700 flex items-center gap-1">
-                                <FileText className="w-4 h-4" /> View Submission
-                              </a>
-                            ) : (
-                              <span className="text-sm text-slate-700">{req.submittedValue}</span>
-                            )}
-                          </td>
-                          <td className="p-4">
-                            {!req.submissionId ? (
-                              <span className="px-3 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-500">PENDING</span>
-                            ) : (
-                              <span className={`px-3 py-1 rounded-full text-xs font-bold ${
-                                req.status === 'APPROVED' ? 'bg-emerald-50 text-emerald-700' :
-                                req.status === 'REJECTED' ? 'bg-rose-50 text-rose-700' :
-                                'bg-amber-50 text-amber-700'
-                              }`}>
-                                {req.status}
-                              </span>
-                            )}
-                            {req.adminRemarks && <p className="text-xs text-slate-500 mt-2 max-w-xs">Remarks: {req.adminRemarks}</p>}
-                          </td>
-                          <td className="p-4 pr-6">
-                            {req.submissionId && (
-                              <form onSubmit={(e) => {
-                                e.preventDefault();
-                                const formData = new FormData(e.currentTarget);
-                                handleReviewSubmission(req.submissionId, formData.get('status') as string, formData.get('remarks') as string);
-                              }} className="flex flex-col gap-2">
-                                <div className="flex gap-2">
-                                  <select name="status" defaultValue={req.status} className="text-xs font-bold px-2 py-1.5 rounded-lg border border-slate-200 outline-none">
-                                    <option value="PENDING">PENDING</option>
-                                    <option value="APPROVED">APPROVED</option>
-                                    <option value="REJECTED">REJECTED</option>
-                                  </select>
-                                  <button type="submit" className="bg-slate-900 text-white px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-slate-800 transition-colors">
-                                    Save
-                                  </button>
-                                </div>
-                                <input name="remarks" type="text" placeholder="Remarks (optional)" defaultValue={req.adminRemarks || ''} className="w-full text-xs px-2 py-1.5 rounded-lg border border-slate-200 outline-none" />
-                              </form>
-                            )}
-                          </td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
+              <div className="p-0 flex-1 relative overflow-hidden flex">
+                <AnimatePresence mode="wait">
+                  {previewSubmission ? (
+                    <motion.div
+                      key="preview"
+                      initial={{ opacity: 0, x: 50 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: -50 }}
+                      className="absolute inset-0 bg-white p-6 flex flex-col z-10"
+                    >
+                      <div className="mb-6 flex items-center justify-between">
+                        <button 
+                          onClick={() => setPreviewSubmission(null)} 
+                          className="flex items-center gap-2 px-4 py-2 bg-slate-100 rounded-xl text-sm font-bold text-slate-600 hover:bg-slate-200 hover:text-slate-900 transition-colors"
+                        >
+                          <ChevronLeft className="w-4 h-4" /> Back to Submissions
+                        </button>
+                        <h3 className="font-black text-slate-900">{previewSubmission.reqName} Document</h3>
+                      </div>
+                      
+                      <div className="flex-1 bg-slate-100/50 rounded-2xl border border-slate-200 overflow-hidden relative flex items-center justify-center p-4">
+                        {previewSubmission.type === 'IMAGE' ? (
+                          <img src={previewSubmission.url} alt="Document Preview" className="max-w-full max-h-full object-contain rounded-lg shadow-sm" />
+                        ) : previewSubmission.type === 'PDF' ? (
+                          <iframe src={previewSubmission.url} className="w-full h-full rounded-lg bg-white" title="PDF Document" />
+                        ) : (
+                          <div className="text-center">
+                            <FileText className="w-16 h-16 text-slate-300 mx-auto mb-4" />
+                            <p className="text-slate-600 font-medium mb-4">Preview not available for this file format.</p>
+                            <a 
+                              href={previewSubmission.url} 
+                              target="_blank" 
+                              rel="noreferrer" 
+                              className="inline-flex items-center gap-2 bg-sky-500 text-white px-6 py-2.5 rounded-xl font-bold hover:bg-sky-600 transition-colors"
+                            >
+                              <LinkIcon className="w-4 h-4" /> Open File Externally
+                            </a>
+                          </div>
+                        )}
+                      </div>
+                    </motion.div>
+                  ) : (
+                    <motion.div
+                      key="list"
+                      initial={{ opacity: 0, x: -50 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: 50 }}
+                      className="absolute inset-0 overflow-y-auto bg-white"
+                    >
+                      {error && <div className="m-6 p-4 bg-rose-50 text-rose-700 rounded-xl text-sm font-medium">{error}</div>}
+                      
+                      <table className="w-full text-left border-collapse">
+                        <thead className="sticky top-0 bg-white shadow-sm z-10">
+                          <tr className="bg-slate-50/90 backdrop-blur border-b border-slate-200 text-xs uppercase tracking-wider text-slate-500 font-bold">
+                            <th className="p-5 pl-8">Requirement</th>
+                            <th className="p-5">Submission</th>
+                            <th className="p-5">Status</th>
+                            <th className="p-5 pr-8">Action</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                          {complianceLoading ? (
+                             <tr><td colSpan={4} className="p-12 text-center text-slate-400">Loading compliance data...</td></tr>
+                          ) : complianceData.length === 0 ? (
+                             <tr><td colSpan={4} className="p-12 text-center text-slate-400">No active blueprints required.</td></tr>
+                          ) : (
+                            complianceData.map((req, idx) => (
+                              <tr key={idx} className="hover:bg-slate-50/50">
+                                <td className="p-5 pl-8 align-top">
+                                  <p className="text-sm font-bold text-slate-900">{req.name}</p>
+                                  <div className="flex items-center gap-2 mt-2">
+                                    <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">{req.type}</span>
+                                    {req.isRequired && <span className="text-[10px] font-bold text-rose-600 bg-rose-50 px-2 py-0.5 rounded border border-rose-100">REQUIRED</span>}
+                                  </div>
+                                </td>
+                                <td className="p-5 align-top">
+                                  {!req.submissionId ? (
+                                    <span className="text-sm text-slate-400 italic">Not submitted yet</span>
+                                  ) : req.type === 'FILE' || req.type === 'URL' ? (
+                                    <button 
+                                      type="button"
+                                      onClick={() => {
+                                        if (req.type === 'URL') {
+                                          window.open(req.submittedValue, '_blank');
+                                        } else {
+                                          handleOpenPreview(req.submittedValue, req.name);
+                                        }
+                                      }} 
+                                      className="text-sm font-bold text-sky-600 hover:text-sky-700 flex items-center gap-1.5 p-2 -ml-2 rounded-lg hover:bg-sky-50 transition-colors"
+                                    >
+                                      {req.type === 'FILE' ? <FileText className="w-4 h-4" /> : <LinkIcon className="w-4 h-4" />}
+                                      {req.type === 'FILE' ? 'Preview Document' : 'Visit Link'}
+                                    </button>
+                                  ) : (
+                                    <span className="text-sm text-slate-700 font-medium">{req.submittedValue}</span>
+                                  )}
+                                </td>
+                                <td className="p-5 align-top">
+                                  {!req.submissionId ? (
+                                    <span className="px-3 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-500 border border-slate-200">PENDING</span>
+                                  ) : (
+                                    <span className={`px-3 py-1 rounded-full text-xs font-bold border ${
+                                      req.status === 'APPROVED' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                                      req.status === 'REJECTED' ? 'bg-rose-50 text-rose-700 border-rose-200' :
+                                      'bg-amber-50 text-amber-700 border-amber-200'
+                                    }`}>
+                                      {req.status}
+                                    </span>
+                                  )}
+                                  {req.adminRemarks && <p className="text-xs text-slate-500 mt-2 max-w-xs leading-relaxed">Remarks: {req.adminRemarks}</p>}
+                                </td>
+                                <td className="p-5 pr-8 align-top">
+                                  {req.submissionId && (
+                                    <form onSubmit={(e) => {
+                                      e.preventDefault();
+                                      const formData = new FormData(e.currentTarget);
+                                      handleReviewSubmission(req.submissionId, formData.get('status') as string, formData.get('remarks') as string);
+                                    }} className="flex flex-col gap-2 min-w-[200px]">
+                                      <div className="flex gap-2">
+                                        <select name="status" defaultValue={req.status} className="flex-1 text-xs font-bold px-3 py-2 rounded-xl border border-slate-200 outline-none bg-slate-50 hover:bg-white focus:ring-2 focus:ring-sky-500/20 transition-all">
+                                          <option value="PENDING">PENDING</option>
+                                          <option value="APPROVED">APPROVED</option>
+                                          <option value="REJECTED">REJECTED</option>
+                                        </select>
+                                        <button type="submit" className="bg-slate-900 text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-slate-800 transition-colors shadow-sm">
+                                          Save
+                                        </button>
+                                      </div>
+                                      <input name="remarks" type="text" placeholder="Remarks (optional)" defaultValue={req.adminRemarks || ''} className="w-full text-xs px-3 py-2 rounded-xl border border-slate-200 outline-none bg-slate-50 hover:bg-white focus:ring-2 focus:ring-sky-500/20 transition-all" />
+                                    </form>
+                                  )}
+                                </td>
+                              </tr>
+                            ))
+                          )}
+                        </tbody>
+                      </table>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
             </motion.div>
           </div>
@@ -590,7 +673,6 @@ export default function AdminDealersPage() {
                   <div>
                     <label className="block text-sm font-bold text-slate-700 mb-1">Data Type</label>
                     <select value={blueprintFormData.type} onChange={e => setBlueprintFormData({...blueprintFormData, type: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-sky-500 outline-none">
-                      {/* Fixed: Only matching db enums */}
                       <option value="FILE">FILE</option>
                       <option value="TEXT">TEXT</option>
                       <option value="NUMBER">NUMBER</option>
