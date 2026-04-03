@@ -1,0 +1,279 @@
+"use client";
+
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { useSelector } from 'react-redux';
+import { RootState } from '@/store/store';
+import { getMyProfile, updateMyProfile } from '@/api/shared/profile';
+import { motion } from 'framer-motion';
+import { Mail, Phone, MapPin, Edit2, Check, X, ShieldCheck, Building2, Briefcase, FileText } from 'lucide-react';
+
+export default function DealerProfilePage() {
+  const router = useRouter();
+  const { isAuthenticated, user } = useSelector((state: RootState) => state.auth);
+  
+  const [profile, setProfile] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isEditing, setIsEditing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  
+  const [formData, setFormData] = useState({
+    businessName: '',
+    contactPerson: '',
+    gstNumber: '',
+    phone: '',
+    street: '',
+    city: '',
+    state: '',
+    pincode: ''
+  });
+
+  useEffect(() => {
+    if (!isAuthenticated || user?.role !== 'DEALER') {
+      router.push('/login?redirect=/dealer/profile');
+      return;
+    }
+    fetchProfile();
+  }, [isAuthenticated, user, router]);
+
+  const fetchProfile = async () => {
+    try {
+      setIsLoading(true);
+      const res = await getMyProfile();
+      setProfile(res.data);
+      
+      const dealerData = res.data?.dealerProfile || {};
+      const meta = res.data?.metadata || {};
+      
+      setFormData({
+        businessName: dealerData.businessName || meta.businessName || '',
+        contactPerson: dealerData.contactPerson || meta.contactPerson || '',
+        gstNumber: dealerData.gstNumber || meta.gstNumber || '',
+        phone: dealerData.phone || meta.phone || meta.mobileNumber || '',
+        street: dealerData.street || meta.street || '',
+        city: dealerData.city || meta.city || '',
+        state: dealerData.state || meta.state || '',
+        pincode: dealerData.pincode || meta.pincode || ''
+      });
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      setIsSaving(true);
+      await updateMyProfile({ metadata: formData });
+      await fetchProfile();
+      setIsEditing(false);
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="w-12 h-12 border-4 border-slate-200 border-t-sky-500 rounded-full animate-spin"></div>
+      </div>
+    );
+  }
+
+  const displayTitle = profile?.dealerProfile?.businessName || profile?.metadata?.businessName || 'Dealer Profile';
+
+  return (
+    <div className="max-w-5xl mx-auto w-full pb-10">
+      <motion.div 
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="bg-slate-900 rounded-t-3xl p-8 sm:p-12 relative overflow-hidden shadow-lg"
+      >
+        <div className="absolute top-0 right-0 p-12 opacity-5 pointer-events-none">
+          <Building2 className="w-64 h-64 text-white" />
+        </div>
+        <div className="relative z-10 flex flex-col sm:flex-row items-center sm:items-end gap-6">
+          <div className="w-32 h-32 bg-white rounded-full p-2 shadow-2xl flex-shrink-0">
+            <div className="w-full h-full bg-sky-100 rounded-full flex items-center justify-center border-4 border-slate-50">
+              <Building2 className="w-12 h-12 text-sky-600" />
+            </div>
+          </div>
+          <div className="text-center sm:text-left flex-1 mb-2">
+            <div className="flex items-center justify-center sm:justify-start gap-3 mb-2">
+              <h1 className="text-3xl font-black text-white">
+                {displayTitle}
+              </h1>
+              {profile?.role === 'DEALER' && (
+                <span className="bg-sky-500/20 text-sky-400 px-3 py-1 rounded-full text-xs font-bold border border-sky-500/30 flex items-center gap-1">
+                  <ShieldCheck className="w-3 h-3" /> Authorized Dealer
+                </span>
+              )}
+            </div>
+            <p className="text-slate-400 font-medium flex items-center justify-center sm:justify-start gap-2">
+              <Mail className="w-4 h-4" /> {profile?.email || user?.email}
+            </p>
+          </div>
+        </div>
+      </motion.div>
+
+      <motion.div 
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.1 }}
+        className="bg-white rounded-b-3xl border-x border-b border-slate-200 shadow-xl shadow-slate-200/20 p-8 sm:p-12"
+      >
+        <div className="flex items-center justify-between mb-8 pb-6 border-b border-slate-100">
+          <h2 className="text-xl font-bold text-slate-900">Dealer Information</h2>
+          {!isEditing ? (
+            <button 
+              onClick={() => setIsEditing(true)}
+              className="flex items-center gap-2 text-sm font-bold text-sky-600 bg-sky-50 px-4 py-2 rounded-full hover:bg-sky-100 transition-colors shadow-sm"
+            >
+              <Edit2 className="w-4 h-4" /> Edit Profile
+            </button>
+          ) : (
+            <div className="flex items-center gap-2">
+              <button 
+                onClick={() => setIsEditing(false)}
+                className="flex items-center gap-2 text-sm font-bold text-slate-600 bg-slate-100 px-4 py-2 rounded-full hover:bg-slate-200 transition-colors"
+              >
+                <X className="w-4 h-4" /> Cancel
+              </button>
+              <button 
+                onClick={handleSubmit}
+                disabled={isSaving}
+                className="flex items-center gap-2 text-sm font-bold text-white bg-sky-600 px-4 py-2 rounded-full hover:bg-sky-700 transition-colors disabled:opacity-50 shadow-sm"
+              >
+                <Check className="w-4 h-4" /> {isSaving ? 'Saving...' : 'Save Changes'}
+              </button>
+            </div>
+          )}
+        </div>
+
+        <form className="space-y-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+            <div>
+              <label className="block text-sm font-bold text-slate-700 mb-2 flex items-center gap-2">
+                <Briefcase className="w-4 h-4 text-slate-400" /> Business Name
+              </label>
+              <input
+                type="text"
+                name="businessName"
+                value={formData.businessName}
+                onChange={handleChange}
+                disabled={!isEditing}
+                placeholder="Your Business Name"
+                className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-sky-500 focus:border-transparent outline-none transition-all disabled:opacity-70 disabled:cursor-not-allowed text-sm"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-bold text-slate-700 mb-2">Contact Person</label>
+              <input
+                type="text"
+                name="contactPerson"
+                value={formData.contactPerson}
+                onChange={handleChange}
+                disabled={!isEditing}
+                placeholder="Full Name"
+                className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-sky-500 focus:border-transparent outline-none transition-all disabled:opacity-70 disabled:cursor-not-allowed text-sm"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+            <div>
+              <label className="block text-sm font-bold text-slate-700 mb-2 flex items-center gap-2">
+                <Phone className="w-4 h-4 text-slate-400" /> Phone Number
+              </label>
+              <input
+                type="text"
+                name="phone"
+                value={formData.phone}
+                onChange={handleChange}
+                disabled={!isEditing}
+                placeholder="+91 9876543210"
+                className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-sky-500 focus:border-transparent outline-none transition-all disabled:opacity-70 disabled:cursor-not-allowed text-sm"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-bold text-slate-700 mb-2 flex items-center gap-2">
+                <FileText className="w-4 h-4 text-slate-400" /> GST Number
+              </label>
+              <input
+                type="text"
+                name="gstNumber"
+                value={formData.gstNumber}
+                onChange={handleChange}
+                disabled={!isEditing}
+                placeholder="e.g. 22AAAAA0000A1Z5"
+                className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-sky-500 focus:border-transparent outline-none transition-all disabled:opacity-70 disabled:cursor-not-allowed text-sm uppercase"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-bold text-slate-700 mb-4 flex items-center gap-2 border-b border-slate-100 pb-2">
+              <MapPin className="w-4 h-4 text-slate-400" /> Default Shipping Address
+            </label>
+            <div className="space-y-6">
+              <div>
+                <label className="block text-xs font-bold text-slate-500 mb-2">Street Address</label>
+                <input
+                  type="text"
+                  name="street"
+                  value={formData.street}
+                  onChange={handleChange}
+                  disabled={!isEditing}
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-sky-500 focus:border-transparent outline-none transition-all disabled:opacity-70 disabled:cursor-not-allowed text-sm"
+                />
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 mb-2">City</label>
+                  <input
+                    type="text"
+                    name="city"
+                    value={formData.city}
+                    onChange={handleChange}
+                    disabled={!isEditing}
+                    className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-sky-500 focus:border-transparent outline-none transition-all disabled:opacity-70 disabled:cursor-not-allowed text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 mb-2">State</label>
+                  <input
+                    type="text"
+                    name="state"
+                    value={formData.state}
+                    onChange={handleChange}
+                    disabled={!isEditing}
+                    className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-sky-500 focus:border-transparent outline-none transition-all disabled:opacity-70 disabled:cursor-not-allowed text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 mb-2">Pincode</label>
+                  <input
+                    type="text"
+                    name="pincode"
+                    value={formData.pincode}
+                    onChange={handleChange}
+                    disabled={!isEditing}
+                    className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-sky-500 focus:border-transparent outline-none transition-all disabled:opacity-70 disabled:cursor-not-allowed text-sm"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        </form>
+      </motion.div>
+    </div>
+  );
+}

@@ -1,151 +1,195 @@
 "use client";
 
-import { useState, useEffect } from 'react';
-import { fetchAllDealers } from '@/api/dealers';
-import { Search, MapPin, Phone, Building2, Loader2, Star, Navigation } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { useState, useEffect, useCallback } from 'react';
+import { GoogleMap, useJsApiLoader, Marker, InfoWindow } from '@react-google-maps/api';
+import { fetchActiveDealers } from '@/api/public/dealers';
+import { MapPin, Search, Navigation, Star, Phone, ArrowRight } from 'lucide-react';
+import Link from 'next/link';
 
-interface Dealer {
-  _id: string;
-  businessName: string;
-  contactPerson: string;
-  phone: string;
-  status: string;
-  pricingTier: string;
-  address: {
-    street: string;
-    city: string;
-    state: string;
-    pincode: string;
-  };
-}
+const containerStyle = { width: '100%', height: '100%' };
+const defaultCenter = { lat: 20.5937, lng: 78.9629 }; 
 
 export default function DealerLocatorPage() {
-  const [dealers, setDealers] = useState<Dealer[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { isLoaded } = useJsApiLoader({
+    id: 'google-map-script',
+    googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || ''
+  });
+
+  const [dealers, setDealers] = useState<any[]>([]);
+  const [mapMarkers, setMapMarkers] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCity, setSelectedCity] = useState('All');
+  const [userLocation, setUserLocation] = useState(defaultCenter);
+  const [activeMarker, setActiveMarker] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
-    const loadDealers = async () => {
-      try {
-        const data = await fetchAllDealers();
-        const approvedDealers = data.filter((d: Dealer) => d.status === 'approved');
-        setDealers(approvedDealers);
-      } catch (error) {
-        console.error(error);
-      } finally {
-        setLoading(false);
-      }
-    };
     loadDealers();
   }, []);
 
-  const cities = ['All', ...Array.from(new Set(dealers.map(d => d.address.city)))];
+  const loadDealers = async (query = '') => {
+    try {
+      setIsLoading(true);
+      const res = await fetchActiveDealers(query);
+      setDealers(res.data || []);
+      
+      const markers = (res.data || []).map((dealer: any) => ({
+        ...dealer,
+        lat: userLocation.lat + (Math.random() - 0.5) * 0.1, 
+        lng: userLocation.lng + (Math.random() - 0.5) * 0.1 
+      }));
+      setMapMarkers(markers);
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
-  const filteredDealers = dealers.filter(dealer => {
-    const matchesSearch = dealer.businessName.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                          dealer.address.pincode.includes(searchQuery);
-    const matchesCity = selectedCity === 'All' || dealer.address.city === selectedCity;
-    return matchesSearch && matchesCity;
-  });
+  const handleLocateMe = () => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const loc = { lat: position.coords.latitude, lng: position.coords.longitude };
+          setUserLocation(loc);
+          
+          if (window.google) {
+            const geocoder = new window.google.maps.Geocoder();
+            geocoder.geocode({ location: loc }, (results, status) => {
+              if (status === 'OK' && results && results[0]) {
+                const city = results[0].address_components.find(c => c.types.includes('locality'))?.long_name || '';
+                setSearchQuery(city);
+                loadDealers(city);
+              }
+            });
+          }
+        },
+        (error) => {
+          console.error("Error fetching location", error);
+        }
+      );
+    }
+  };
+
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    loadDealers(searchQuery);
+  };
+
+  if (!isLoaded) return <div className="min-h-screen flex items-center justify-center"><div className="animate-spin w-12 h-12 border-4 border-sky-500 border-t-transparent rounded-full" /></div>;
 
   return (
-    <div className="bg-gray-50 min-h-screen pb-24">
-      <div className="bg-white border-b border-gray-200 pt-16 pb-16">
-        <div className="max-w-7xl mx-auto px-4 text-center">
-          <h1 className="text-4xl md:text-5xl font-bold text-gray-900 mb-6">Find an Authorized <span className="text-sky-500">Dealer</span></h1>
-          <p className="text-gray-600 text-lg max-w-2xl mx-auto">
-            Locate a certified Bharat Forge partner near you for authentic products, expert installation, and reliable after-sales service.
-          </p>
+    <div className="h-[calc(100vh-80px)] flex flex-col md:flex-row bg-slate-50">
+      <div className="w-full md:w-1/3 h-1/2 md:h-full bg-white shadow-xl z-10 flex flex-col">
+        <div className="p-6 border-b border-slate-100">
+          <h1 className="text-2xl font-black text-slate-900 mb-2">Find a Dealer</h1>
+          <p className="text-slate-500 text-sm mb-6">Locate authorized BharatForge partners near you.</p>
+
+          <form onSubmit={handleSearch} className="relative mb-4">
+            <input
+              type="text"
+              placeholder="Enter city or pincode..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-sky-500 focus:border-transparent outline-none"
+            />
+            <Search className="w-5 h-5 text-slate-400 absolute left-3 top-3.5" />
+          </form>
+
+          <button 
+            onClick={handleLocateMe}
+            className="w-full flex items-center justify-center gap-2 text-sky-600 bg-sky-50 py-3 rounded-xl font-bold hover:bg-sky-100 transition-colors"
+          >
+            <Navigation className="w-4 h-4" /> Use My Current Location
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+          {isLoading ? (
+            <div className="text-center py-8 text-slate-400 animate-pulse">Searching...</div>
+          ) : mapMarkers.length > 0 ? (
+            mapMarkers.map((dealer) => (
+              <div 
+                key={dealer.id}
+                onMouseEnter={() => setActiveMarker(dealer.id)}
+                onMouseLeave={() => setActiveMarker(null)}
+                className={`p-5 rounded-2xl border transition-all cursor-pointer ${activeMarker === dealer.id ? 'border-sky-500 bg-sky-50 shadow-md' : 'border-slate-200 bg-white hover:border-slate-300'}`}
+              >
+                <div className="flex justify-between items-start mb-2">
+                  <h3 className="font-bold text-slate-900">{dealer.businessName}</h3>
+                  <div className="flex items-center gap-1 bg-amber-100 text-amber-700 px-2 py-0.5 rounded text-xs font-bold">
+                    <Star className="w-3 h-3 fill-amber-500" /> {dealer.averageRating.toFixed(1)}
+                  </div>
+                </div>
+                <p className="text-sm text-slate-500 mb-3 line-clamp-2">
+                  {dealer.street}, {dealer.city}, {dealer.state} {dealer.pincode}
+                </p>
+                <div className="flex items-center justify-between mt-4 pt-4 border-t border-slate-100/50">
+                  <div className="flex items-center gap-1.5 text-slate-600 text-sm font-medium">
+                    <Phone className="w-4 h-4" /> {dealer.phone}
+                  </div>
+                  <Link href={`/dealer-profile/${dealer.id}`} className="text-sky-600 hover:text-sky-700 font-bold text-sm flex items-center gap-1">
+                    View Profile <ArrowRight className="w-4 h-4" />
+                  </Link>
+                </div>
+              </div>
+            ))
+          ) : (
+            <div className="text-center py-12">
+              <MapPin className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+              <p className="text-slate-500 font-medium">No dealers found in this area.</p>
+            </div>
+          )}
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 mt-8">
-        <div className="bg-white p-4 md:p-6 rounded-2xl shadow-sm border border-gray-100 mb-8 flex flex-col md:flex-row gap-4 items-center justify-between">
-          <div className="relative w-full md:max-w-md">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Search by Dealer Name or Pincode..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-12 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 transition-all text-sm"
-            />
-          </div>
-          
-          <div className="w-full md:w-auto flex items-center gap-4">
-            <span className="text-sm font-medium text-gray-500 whitespace-nowrap">Filter by City:</span>
-            <select 
-              value={selectedCity}
-              onChange={(e) => setSelectedCity(e.target.value)}
-              className="w-full md:w-48 bg-gray-50 border border-gray-200 text-gray-900 text-sm rounded-xl focus:ring-sky-500 focus:border-sky-500 p-3 outline-none cursor-pointer"
+      <div className="w-full md:w-2/3 h-1/2 md:h-full relative">
+        <GoogleMap
+          mapContainerStyle={containerStyle}
+          center={userLocation}
+          zoom={12}
+          options={{ disableDefaultUI: true, zoomControl: true }}
+        >
+          {mapMarkers.map((dealer) => (
+            <Marker
+              key={dealer.id}
+              position={{ lat: dealer.lat, lng: dealer.lng }}
+              onClick={() => setActiveMarker(dealer.id)}
+              onMouseOver={() => setActiveMarker(dealer.id)}
+              icon={{
+                path: window.google.maps.SymbolPath.CIRCLE,
+                fillColor: activeMarker === dealer.id ? '#0ea5e9' : '#0f172a',
+                fillOpacity: 1,
+                strokeWeight: 2,
+                strokeColor: '#ffffff',
+                scale: 10,
+              }}
             >
-              {cities.map(city => (
-                <option key={city} value={city}>{city}</option>
-              ))}
-            </select>
-          </div>
-        </div>
-
-        {loading ? (
-          <div className="flex justify-center items-center py-20">
-            <Loader2 className="h-10 w-10 text-sky-500 animate-spin" />
-          </div>
-        ) : filteredDealers.length === 0 ? (
-          <div className="text-center py-20 bg-white rounded-2xl border border-gray-100">
-            <MapPin className="h-12 w-12 text-gray-300 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900">No dealers found</h3>
-            <p className="text-gray-500">Try adjusting your search criteria or selecting a different city.</p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredDealers.map((dealer, idx) => (
-              <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: idx * 0.05 }}
-                key={dealer._id}
-                className="bg-white rounded-2xl border border-gray-100 overflow-hidden hover:shadow-xl hover:border-sky-100 transition-all group flex flex-col p-6 relative"
-              >
-                {dealer.pricingTier === 'gold' && (
-                  <div className="absolute top-4 right-4 bg-amber-100 text-amber-700 px-3 py-1 rounded-full text-xs font-bold flex items-center">
-                    <Star className="h-3 w-3 mr-1 fill-amber-700" /> Premium Partner
+              {activeMarker === dealer.id && (
+                <InfoWindow onCloseClick={() => setActiveMarker(null)}>
+                  <div className="p-3 max-w-xs">
+                    <h3 className="font-bold text-slate-900 mb-1">{dealer.businessName}</h3>
+                    <p className="text-xs text-slate-500 mb-3">{dealer.city}, {dealer.state}</p>
+                    <Link href={`/dealer-profile/${dealer.id}`} className="bg-sky-500 text-white px-4 py-2 rounded-lg text-xs font-bold block text-center hover:bg-sky-600">
+                      View Dealer
+                    </Link>
                   </div>
-                )}
-                
-                <div className="h-12 w-12 bg-sky-50 rounded-xl flex items-center justify-center mb-6 text-sky-600">
-                  <Building2 className="h-6 w-6" />
-                </div>
-                
-                <h3 className="font-bold text-xl text-gray-900 mb-2">{dealer.businessName}</h3>
-                
-                <div className="space-y-3 mt-4 flex-1">
-                  <div className="flex items-start text-sm text-gray-600">
-                    <MapPin className="h-4 w-4 mr-3 text-gray-400 flex-shrink-0 mt-0.5" />
-                    <span>{dealer.address.street}, {dealer.address.city}, {dealer.address.state} - {dealer.address.pincode}</span>
-                  </div>
-                  <div className="flex items-center text-sm text-gray-600">
-                    <Phone className="h-4 w-4 mr-3 text-gray-400 flex-shrink-0" />
-                    <span>{dealer.phone}</span>
-                  </div>
-                </div>
-
-                <div className="mt-8 pt-4 border-t border-gray-100">
-                  <a 
-                    href={`https://maps.google.com/?q=${encodeURIComponent(`${dealer.businessName} ${dealer.address.city}`)}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="w-full bg-sky-50 hover:bg-sky-500 text-sky-600 hover:text-white font-medium py-3 rounded-xl transition-colors flex items-center justify-center text-sm"
-                  >
-                    <Navigation className="h-4 w-4 mr-2" />
-                    Get Directions
-                  </a>
-                </div>
-              </motion.div>
-            ))}
-          </div>
-        )}
+                </InfoWindow>
+              )}
+            </Marker>
+          ))}
+          
+          <Marker 
+            position={userLocation} 
+            icon={{
+              path: window.google.maps.SymbolPath.FORWARD_CLOSED_ARROW,
+              fillColor: '#ef4444',
+              fillOpacity: 1,
+              strokeWeight: 2,
+              strokeColor: '#ffffff',
+              scale: 6,
+            }}
+          />
+        </GoogleMap>
       </div>
     </div>
   );

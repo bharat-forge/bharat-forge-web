@@ -2,60 +2,142 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, Package, Users, ClipboardList, Settings, LogOut, Tags, AlertCircle } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import {
+  LayoutDashboard,
+  Package,
+  Users,
+  ClipboardList,
+  LogOut,
+  Tags,
+  FileText,
+  UserCircle,
+  LifeBuoy,
+  Menu,
+  ChevronLeft,
+  ChevronRight,
+  Building2,
+  Store,
+  MessageSquare
+} from 'lucide-react';
 import { useDispatch } from 'react-redux';
 import { logout } from '@/store/slices/authSlice';
+import { motion, AnimatePresence } from 'framer-motion';
 
 const menuItems = [
-  { icon: LayoutDashboard, label: 'Dashboard', href: '/admin/dashboard' },
-  { icon: Package, label: 'Inventory', href: '/admin/inventory' },
+  // { icon: LayoutDashboard, label: 'Dashboard', href: '/admin/dashboard' },
   { icon: Tags, label: 'Categories', href: '/admin/categories' },
+  { icon: Package, label: 'Products', href: '/admin/products' },
+  { icon: FileText, label: 'Article Categories', href: '/admin/article-categories' },
+  { icon: FileText, label: 'Articles', href: '/admin/articles' },
   { icon: Users, label: 'Dealers', href: '/admin/dealers' },
+  { icon: Store, label: 'Dealerships', href: '/admin/dealerships' },
+  { icon: UserCircle, label: 'Customers', href: '/admin/customers' },
   { icon: ClipboardList, label: 'Orders', href: '/admin/orders' },
-  { icon: AlertCircle, label: 'Reports', href: '/admin/reports' },
+  { icon: LifeBuoy, label: 'Support Tickets', href: '/admin/support' },
+  { icon: MessageSquare, label: 'Chats', href: '/admin/chat' },
+  { icon: UserCircle, label: 'Profile', href: '/admin/profile' },
 ];
 
 export default function AdminSidebar() {
   const pathname = usePathname();
   const dispatch = useDispatch();
+  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const handleResize = () => {
+      const mobile = window.innerWidth < 1024;
+      setIsMobile(mobile);
+      if (mobile) setIsCollapsed(true);
+    };
+
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   return (
-    <aside className="w-64 bg-gray-900 h-screen sticky top-0 flex flex-col">
-      <div className="h-20 flex items-center px-8 border-b border-gray-800">
-        <span className="font-bold text-xl tracking-tight text-white">
-          Admin<span className="text-sky-500">Panel</span>
-        </span>
+    <motion.aside
+      animate={{ width: isCollapsed ? 80 : 280 }}
+      transition={{ duration: 0.3, ease: "easeInOut" }}
+      className="bg-slate-900 h-screen sticky top-0 flex flex-col z-50 flex-shrink-0"
+    >
+      <div className="h-20 flex items-center justify-between px-6 border-b border-slate-800">
+        <AnimatePresence mode="wait">
+          {!isCollapsed && (
+            <motion.span
+              initial={{ opacity: 0, width: 0 }}
+              animate={{ opacity: 1, width: "auto" }}
+              exit={{ opacity: 0, width: 0 }}
+              className="font-black text-xl tracking-tight text-white whitespace-nowrap overflow-hidden"
+            >
+              Admin<span className="text-sky-500">Panel</span>
+            </motion.span>
+          )}
+        </AnimatePresence>
+        <button
+          onClick={() => setIsCollapsed(!isCollapsed)}
+          className="text-slate-400 hover:text-white p-2 rounded-lg hover:bg-slate-800 transition-colors"
+        >
+          {isCollapsed ? <Menu className="w-6 h-6" /> : <ChevronLeft className="w-6 h-6" />}
+        </button>
       </div>
 
-      <div className="flex-1 py-6 px-4 space-y-2 overflow-y-auto">
+      <div className="flex-1 py-6 px-4 space-y-2 overflow-y-auto scrollbar-hide">
         {menuItems.map((item) => {
-          const isActive = pathname.includes(item.href);
+          const isActive = pathname === item.href;
           return (
             <Link
               key={item.href}
               href={item.href}
-              className={`flex items-center px-4 py-3 rounded-xl transition-all ${
-                isActive 
-                  ? 'bg-sky-500 text-white font-medium shadow-md shadow-sky-500/20' 
-                  : 'text-gray-400 hover:bg-gray-800 hover:text-white'
-              }`}
+              title={isCollapsed ? item.label : undefined}
+              className={`flex items-center rounded-xl transition-all overflow-hidden ${isCollapsed ? 'justify-center p-3' : 'px-4 py-3'
+                } ${isActive
+                  ? 'bg-sky-500 text-white shadow-lg shadow-sky-500/20'
+                  : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                }`}
             >
-              <item.icon className={`h-5 w-5 mr-3 ${isActive ? 'text-white' : 'text-gray-400'}`} />
-              {item.label}
+              <item.icon className={`flex-shrink-0 ${isCollapsed ? 'w-6 h-6' : 'w-5 h-5'} ${isActive ? 'text-white' : 'text-slate-400'}`} />
+              <AnimatePresence mode="wait">
+                {!isCollapsed && (
+                  <motion.span
+                    initial={{ opacity: 0, width: 0 }}
+                    animate={{ opacity: 1, width: "auto" }}
+                    exit={{ opacity: 0, width: 0 }}
+                    className="ml-3 font-medium whitespace-nowrap"
+                  >
+                    {item.label}
+                  </motion.span>
+                )}
+              </AnimatePresence>
             </Link>
           );
         })}
       </div>
 
-      <div className="p-4 border-t border-gray-800">
+      <div className="p-4 border-t border-slate-800">
         <button
           onClick={() => dispatch(logout())}
-          className="flex items-center w-full px-4 py-3 rounded-xl text-gray-400 hover:bg-red-500/10 hover:text-red-500 transition-all"
+          title={isCollapsed ? "Logout" : undefined}
+          className={`flex items-center w-full rounded-xl text-slate-400 hover:bg-rose-500/10 hover:text-rose-500 transition-all overflow-hidden ${isCollapsed ? 'justify-center p-3' : 'px-4 py-3'
+            }`}
         >
-          <LogOut className="h-5 w-5 mr-3" />
-          Logout
+          <LogOut className={`flex-shrink-0 ${isCollapsed ? 'w-6 h-6' : 'w-5 h-5'}`} />
+          <AnimatePresence mode="wait">
+            {!isCollapsed && (
+              <motion.span
+                initial={{ opacity: 0, width: 0 }}
+                animate={{ opacity: 1, width: "auto" }}
+                exit={{ opacity: 0, width: 0 }}
+                className="ml-3 font-medium whitespace-nowrap"
+              >
+                Logout
+              </motion.span>
+            )}
+          </AnimatePresence>
         </button>
       </div>
-    </aside>
+    </motion.aside>
   );
 }

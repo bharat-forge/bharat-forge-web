@@ -1,210 +1,303 @@
 "use client";
 
-import { useState } from 'react';
-import { motion } from 'framer-motion';
-import { CreditCard, Truck, ShieldCheck, Loader2, IndianRupee } from 'lucide-react';
-import { createOrder, verifyPayment } from '@/api/orders';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { useDispatch, useSelector } from 'react-redux';
+import { RootState } from '@/store/store';
+import { clearCart } from '@/store/slices/cartSlice';
+import { processCheckout } from '@/api/shared/checkout';
+import { MapPin, CreditCard, ArrowRight, ShieldCheck, Truck, Package, ChevronLeft } from 'lucide-react';
 import Image from 'next/image';
+import Link from 'next/link';
+
+const loadRazorpayScript = () => {
+  return new Promise((resolve) => {
+    if (typeof window !== 'undefined' && (window as any).Razorpay) {
+      resolve(true);
+      return;
+    }
+    const script = document.createElement('script');
+    script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+    script.onload = () => resolve(true);
+    script.onerror = () => resolve(false);
+    document.body.appendChild(script);
+  });
+};
 
 export default function CheckoutPage() {
   const router = useRouter();
-  const [loading, setLoading] = useState(false);
-  
-  const mockCart = [
-    {
-      product: { _id: '1', name: 'UltraGrip Performance+ SUV', price: 8500, image: 'https://images.unsplash.com/photo-1620064567006-25807ebc6319?auto=format&fit=crop&q=80&w=800' },
-      quantity: 4
-    }
-  ];
+  const dispatch = useDispatch();
+  const { items } = useSelector((state: RootState) => state.cart);
+  const { isAuthenticated, user } = useSelector((state: RootState) => state.auth);
 
-  const subtotal = mockCart.reduce((acc, item) => acc + (item.product.price * item.quantity), 0);
-  const gst = subtotal * 0.18;
-  const total = subtotal + gst;
-
+  const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
-    firstName: '', lastName: '', email: '', phone: '',
-    street: '', city: '', state: '', pincode: ''
+    street: '',
+    city: '',
+    state: '',
+    pincode: '',
+    country: 'India'
   });
+  const [error, setError] = useState('');
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+  useEffect(() => {
+    if (!isAuthenticated) {
+      router.push('/login?redirect=/checkout');
+    } else if (items.length === 0) {
+      router.push('/cart');
+    }
+  }, [isAuthenticated, items, router]);
+
+  const subtotal = items.reduce((acc, item) => acc + ((item.price || 0) * item.quantity), 0);
+  const tax = subtotal * 0.18;
+  const total = subtotal + tax;
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  const initializeRazorpay = () => {
-    return new Promise((resolve) => {
-      const script = document.createElement('script');
-      script.src = 'https://checkout.razorpay.com/v1/checkout.js';
-      script.onload = () => resolve(true);
-      script.onerror = () => resolve(false);
-      document.body.appendChild(script);
-    });
-  };
-
-  const handlePayment = async (e: React.FormEvent) => {
+  const handleCheckout = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
+    setError('');
+
+    if (!formData.street || !formData.city || !formData.state || !formData.pincode) {
+      setError('Please fill in all address fields.');
+      return;
+    }
 
     try {
-      const res = await initializeRazorpay();
-      if (!res) throw new Error('Razorpay SDK failed to load');
+      setIsLoading(true);
 
-      const orderPayload = {
-        items: mockCart.map(item => ({ product: item.product._id, quantity: item.quantity, price: item.product.price })),
-        shippingAddress: {
-          street: formData.street, city: formData.city,
-          state: formData.state, pincode: formData.pincode, country: 'India'
-        },
+      const isLoaded = await loadRazorpayScript();
+      if (!isLoaded) {
+        setError('Failed to load payment gateway. Please check your connection.');
+        setIsLoading(false);
+        return;
+      }
+
+      const res = await processCheckout({
+        shippingAddress: formData,
         paymentMethod: 'razorpay'
-      };
+      });
 
-      const { order, razorpayOrder } = await createOrder(orderPayload);
+      const { razorpayOrder } = res.data;
+
+      if (!razorpayOrder) {
+        throw new Error('Invalid response from server');
+      }
 
       const options = {
-        key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
+        key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || '', 
         amount: razorpayOrder.amount,
         currency: razorpayOrder.currency,
         name: 'Bharat Forge',
-        description: 'Secure Checkout',
+        description: 'Order Payment',
         order_id: razorpayOrder.id,
-        handler: async function (response: any) {
-          try {
-            await verifyPayment({
-              orderId: order._id,
-              razorpayPaymentId: response.razorpay_payment_id,
-              razorpaySignature: response.razorpay_signature
-            });
-            router.push(`/track-order?id=${order._id}`);
-          } catch (err) {
-            console.error('Payment verification failed', err);
-          }
-        },
         prefill: {
-          name: `${formData.firstName} ${formData.lastName}`,
-          email: formData.email,
-          contact: formData.phone
+          email: user?.email || '',
         },
-        theme: { color: '#0ea5e9' }
+        theme: {
+          color: '#0ea5e9'
+        },
+        handler: async function (response: any) {
+          dispatch(clearCart());
+          router.push('/orders?success=true');
+        },
       };
 
       const rzp = new (window as any).Razorpay(options);
+      
+      rzp.on('payment.failed', function (response: any) {
+        setError(response.error.description || 'Payment failed. Please try again.');
+      });
+
       rzp.open();
-    } catch (error) {
-      console.error(error);
+    } catch (err: any) {
+      console.error(err);
+      setError(err.response?.data?.message || 'Something went wrong during checkout.');
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
   };
 
+  if (items.length === 0) return null;
+
   return (
-    <div className="bg-gray-50 min-h-screen pt-12 pb-24">
-      <div className="max-w-7xl mx-auto px-4">
-        <h1 className="text-3xl font-bold text-gray-900 mb-8">Secure Checkout</h1>
-        
-        <div className="flex flex-col lg:flex-row gap-8">
-          <div className="flex-1 space-y-8">
-            <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100">
-              <h2 className="text-xl font-bold text-gray-900 mb-6 flex items-center">
-                <Truck className="h-5 w-5 text-sky-500 mr-2" />
-                Shipping Details
+    <div className="min-h-screen bg-slate-50 py-12 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-7xl mx-auto">
+        <Link href="/cart" className="inline-flex items-center gap-2 text-sm text-slate-500 hover:text-slate-900 mb-8 transition-colors font-medium">
+          <ChevronLeft className="w-4 h-4" /> Back to Cart
+        </Link>
+
+        <h1 className="text-3xl font-black text-slate-900 tracking-tight mb-8 flex items-center gap-3">
+          <ShieldCheck className="w-8 h-8 text-sky-500" /> Secure Checkout
+        </h1>
+
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+          
+          <div className="lg:col-span-7 space-y-6">
+            <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm">
+              <h2 className="text-xl font-bold text-slate-900 mb-6 flex items-center gap-2">
+                <Truck className="w-5 h-5 text-sky-500" /> Shipping Information
               </h2>
-              <form className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">First Name</label>
-                    <input type="text" name="firstName" onChange={handleChange} className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500" required />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Last Name</label>
-                    <input type="text" name="lastName" onChange={handleChange} className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500" required />
-                  </div>
+              
+              {error && (
+                <div className="mb-6 p-4 bg-rose-50 border border-rose-100 text-rose-600 rounded-xl text-sm font-medium">
+                  {error}
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Email Address</label>
-                    <input type="email" name="email" onChange={handleChange} className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500" required />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Phone Number</label>
-                    <input type="tel" name="phone" onChange={handleChange} className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500" required />
-                  </div>
-                </div>
+              )}
+
+              <form id="checkout-form" onSubmit={handleCheckout} className="space-y-5">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Street Address</label>
-                  <input type="text" name="street" onChange={handleChange} className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500" required />
+                  <label className="block text-sm font-bold text-slate-700 mb-1.5">Street Address</label>
+                  <input
+                    type="text"
+                    name="street"
+                    value={formData.street}
+                    onChange={handleInputChange}
+                    placeholder="123 Main St, Apt 4B"
+                    className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-sky-500 focus:border-transparent outline-none transition-all"
+                    required
+                  />
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">City</label>
-                    <input type="text" name="city" onChange={handleChange} className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500" required />
+                    <label className="block text-sm font-bold text-slate-700 mb-1.5">City</label>
+                    <input
+                      type="text"
+                      name="city"
+                      value={formData.city}
+                      onChange={handleInputChange}
+                      placeholder="Mumbai"
+                      className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-sky-500 focus:border-transparent outline-none transition-all"
+                      required
+                    />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">State</label>
-                    <input type="text" name="state" onChange={handleChange} className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500" required />
+                    <label className="block text-sm font-bold text-slate-700 mb-1.5">State</label>
+                    <input
+                      type="text"
+                      name="state"
+                      value={formData.state}
+                      onChange={handleInputChange}
+                      placeholder="Maharashtra"
+                      className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-sky-500 focus:border-transparent outline-none transition-all"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                  <div>
+                    <label className="block text-sm font-bold text-slate-700 mb-1.5">Pincode</label>
+                    <input
+                      type="text"
+                      name="pincode"
+                      value={formData.pincode}
+                      onChange={handleInputChange}
+                      placeholder="400001"
+                      className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-sky-500 focus:border-transparent outline-none transition-all"
+                      required
+                    />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Pincode</label>
-                    <input type="text" name="pincode" onChange={handleChange} className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500" required />
+                    <label className="block text-sm font-bold text-slate-700 mb-1.5">Country</label>
+                    <input
+                      type="text"
+                      name="country"
+                      value={formData.country}
+                      disabled
+                      className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-100 text-slate-500 cursor-not-allowed outline-none"
+                    />
                   </div>
                 </div>
               </form>
             </div>
+
+            <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm">
+              <h2 className="text-xl font-bold text-slate-900 mb-6 flex items-center gap-2">
+                <CreditCard className="w-5 h-5 text-sky-500" /> Payment Method
+              </h2>
+              <div className="p-4 rounded-xl border-2 border-sky-500 bg-sky-50 flex items-center gap-4 cursor-pointer">
+                <div className="w-6 h-6 rounded-full border-4 border-sky-500 bg-white"></div>
+                <div className="flex-1">
+                  <h3 className="font-bold text-slate-900">Pay Online (Razorpay)</h3>
+                  <p className="text-sm text-slate-500">Credit/Debit Card, UPI, NetBanking</p>
+                </div>
+              </div>
+            </div>
           </div>
 
-          <div className="w-full lg:w-[400px]">
-            <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100 sticky top-28">
-              <h2 className="text-xl font-bold text-gray-900 mb-6">Order Summary</h2>
+          <div className="lg:col-span-5">
+            <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm sticky top-28">
+              <h3 className="text-xl font-bold text-slate-900 mb-6">Order Summary</h3>
               
-              <div className="space-y-4 mb-6">
-                {mockCart.map((item, idx) => (
-                  <div key={idx} className="flex gap-4">
-                    <div className="h-16 w-16 bg-gray-50 rounded-xl relative overflow-hidden border border-gray-200 flex-shrink-0">
-                      <Image src={item.product.image} alt={item.product.name} fill className="object-cover" />
+              <div className="space-y-4 mb-6 max-h-[40vh] overflow-y-auto pr-2">
+                {items.map((item) => (
+                  <div key={item.id} className="flex gap-4 items-center">
+                    <div className="w-16 h-16 bg-slate-50 rounded-xl p-2 relative flex-shrink-0 border border-slate-100">
+                      {item.images?.[0] ? (
+                        <Image src={item.images[0]} alt={item.name} fill className="object-contain p-1" />
+                      ) : (
+                        <Package className="w-full h-full text-slate-300 p-2" />
+                      )}
+                      <div className="absolute -top-2 -right-2 bg-slate-800 text-white text-[10px] font-bold w-5 h-5 flex items-center justify-center rounded-full">
+                        {item.quantity}
+                      </div>
                     </div>
-                    <div className="flex-1">
-                      <h4 className="font-bold text-gray-900 text-sm line-clamp-2">{item.product.name}</h4>
-                      <div className="text-gray-500 text-xs mt-1">Qty: {item.quantity} × ₹{item.product.price.toLocaleString('en-IN')}</div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-bold text-slate-900 truncate">{item.name}</p>
+                      <p className="text-xs text-slate-500">{item.sku}</p>
+                    </div>
+                    <div className="text-sm font-bold text-slate-900">
+                      ₹{((item.price || 0) * item.quantity).toLocaleString()}
                     </div>
                   </div>
                 ))}
               </div>
 
-              <div className="border-t border-gray-100 pt-6 space-y-3 mb-6">
-                <div className="flex justify-between text-gray-500 text-sm">
+              <div className="space-y-4 mb-6 border-t border-slate-100 pt-6">
+                <div className="flex items-center justify-between text-sm text-slate-600">
                   <span>Subtotal</span>
-                  <span className="font-medium text-gray-900">₹{subtotal.toLocaleString('en-IN')}</span>
+                  <span className="font-semibold text-slate-900">₹{subtotal.toLocaleString()}</span>
                 </div>
-                <div className="flex justify-between text-gray-500 text-sm">
-                  <span>Estimated GST (18%)</span>
-                  <span className="font-medium text-gray-900">₹{gst.toLocaleString('en-IN')}</span>
+                <div className="flex items-center justify-between text-sm text-slate-600">
+                  <span>Tax (GST 18%)</span>
+                  <span className="font-semibold text-slate-900">₹{tax.toLocaleString()}</span>
                 </div>
-                <div className="flex justify-between text-gray-500 text-sm">
+                <div className="flex items-center justify-between text-sm text-slate-600">
                   <span>Shipping</span>
-                  <span className="font-medium text-green-600">Free</span>
+                  <span className="font-semibold text-emerald-600">Free</span>
                 </div>
               </div>
 
-              <div className="border-t border-gray-100 pt-6 mb-8">
-                <div className="flex justify-between items-center">
-                  <span className="font-bold text-gray-900">Total</span>
-                  <span className="text-2xl font-bold text-gray-900">₹{total.toLocaleString('en-IN')}</span>
+              <div className="border-t border-slate-100 pt-6 mb-8">
+                <div className="flex items-center justify-between">
+                  <span className="text-lg font-bold text-slate-900">Total to Pay</span>
+                  <span className="text-2xl font-black text-sky-600">₹{total.toLocaleString()}</span>
                 </div>
               </div>
 
               <button 
-                onClick={handlePayment}
-                disabled={loading}
-                className="w-full bg-sky-500 hover:bg-sky-600 text-white font-bold py-4 rounded-xl shadow-lg shadow-sky-500/30 transition-all flex items-center justify-center disabled:opacity-50"
+                type="submit"
+                form="checkout-form"
+                disabled={isLoading}
+                className="w-full flex items-center justify-center gap-2 bg-slate-900 text-white px-8 py-4 rounded-full font-bold hover:bg-slate-800 transition-colors disabled:bg-slate-300 disabled:cursor-not-allowed"
               >
-                {loading ? <Loader2 className="animate-spin h-5 w-5" /> : <><CreditCard className="h-5 w-5 mr-2" /> Pay with Razorpay</>}
+                {isLoading ? (
+                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                ) : (
+                  <>Complete Payment <ArrowRight className="w-5 h-5" /></>
+                )}
               </button>
-
-              <div className="mt-6 flex items-center justify-center text-xs text-gray-500 gap-2">
-                <ShieldCheck className="h-4 w-4 text-green-500" />
-                256-bit SSL Encrypted Checkout
-              </div>
+              <p className="text-center text-xs text-slate-400 mt-4 font-medium flex items-center justify-center gap-1">
+                <ShieldCheck className="w-4 h-4" /> Secure 256-bit SSL encryption
+              </p>
             </div>
           </div>
+
         </div>
       </div>
     </div>

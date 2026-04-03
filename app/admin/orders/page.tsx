@@ -1,138 +1,409 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { Search, Loader2, Package, Eye, CheckCircle, XCircle } from 'lucide-react';
-import axiosInstance from '@/api/axiosInstance';
-
-interface Order {
-  _id: string;
-  totalAmount: number;
-  status: string;
-  createdAt: string;
-  paymentMethod: string;
-  user: { email: string };
-  dealerProfile?: { businessName: string };
-}
+import { motion, AnimatePresence } from 'framer-motion';
+import { 
+  Search, X, PackageSearch, Building2, UserCircle, 
+  ChevronLeft, ChevronRight, Edit2, RotateCcw, 
+  Clock, Package, Truck, CheckCircle, XCircle, CreditCard
+} from 'lucide-react';
+import { 
+  getAllOrders, 
+  updateOrderStatus, 
+  updateRefundStatus 
+} from '@/api/admin/orderManagement';
 
 export default function AdminOrdersPage() {
-  const [orders, setOrders] = useState<Order[]>([]);
+  const [orders, setOrders] = useState<any[]>([]);
+  const [meta, setMeta] = useState({ totalCount: 0, totalPages: 1, currentPage: 1, limit: 10 });
   const [loading, setLoading] = useState(true);
+  
   const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
+  const [paymentFilter, setPaymentFilter] = useState('');
+  const [refundFilter, setRefundFilter] = useState('');
+  const [page, setPage] = useState(1);
+
+  const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
+  const [selectedOrder, setSelectedOrder] = useState<any>(null);
+  const [statusData, setStatusData] = useState({ status: 'PENDING' });
+  const [statusLoading, setStatusLoading] = useState(false);
+
+  const [isRefundModalOpen, setIsRefundModalOpen] = useState(false);
+  const [refundData, setRefundData] = useState({ refundStatus: 'NONE' });
+  const [refundLoading, setRefundLoading] = useState(false);
+
+  const fetchOrders = async (currentPage = 1) => {
+    try {
+      setLoading(true);
+      const params: any = { page: currentPage, limit: 10 };
+      if (searchQuery) params.search = searchQuery;
+      if (statusFilter) params.status = statusFilter;
+      if (paymentFilter) params.paymentStatus = paymentFilter;
+      if (refundFilter) params.refundStatus = refundFilter;
+      
+      const res = await getAllOrders(params);
+      setOrders(res.data?.data || []);
+      setMeta(res.data?.meta || { totalCount: 0, totalPages: 1, currentPage, limit: 10 });
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchAllOrders = async () => {
-      try {
-        const response = await axiosInstance.get('/api/orders/all');
-        setOrders(response.data);
-      } catch (error) {
-        console.error(error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchAllOrders();
-  }, []);
+    const timer = setTimeout(() => fetchOrders(page), 500);
+    return () => clearTimeout(timer);
+  }, [searchQuery, statusFilter, paymentFilter, refundFilter, page]);
 
-  const filteredOrders = orders.filter(o => 
-    o._id.includes(searchQuery) || 
-    o.dealerProfile?.businessName.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const handleOpenStatusModal = (order: any) => {
+    setSelectedOrder(order);
+    setStatusData({ status: order.status });
+    setIsStatusModalOpen(true);
+  };
+
+  const handleUpdateStatus = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setStatusLoading(true);
+    try {
+      await updateOrderStatus(selectedOrder.id, statusData);
+      setIsStatusModalOpen(false);
+      fetchOrders(meta.currentPage);
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Failed to update order status');
+    } finally {
+      setStatusLoading(false);
+    }
+  };
+
+  const handleOpenRefundModal = (order: any) => {
+    setSelectedOrder(order);
+    setRefundData({ refundStatus: order.refundStatus });
+    setIsRefundModalOpen(true);
+  };
+
+  const handleUpdateRefund = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setRefundLoading(true);
+    try {
+      await updateRefundStatus(selectedOrder.id, refundData);
+      setIsRefundModalOpen(false);
+      fetchOrders(meta.currentPage);
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Failed to update refund status');
+    } finally {
+      setRefundLoading(false);
+    }
+  };
+
+  const getStatusIcon = (status: string) => {
+    switch(status) {
+      case 'PENDING': return <Clock className="w-3.5 h-3.5" />;
+      case 'PROCESSING': return <Package className="w-3.5 h-3.5" />;
+      case 'SHIPPED': return <Truck className="w-3.5 h-3.5" />;
+      case 'DELIVERED': return <CheckCircle className="w-3.5 h-3.5" />;
+      case 'CANCELLED': return <XCircle className="w-3.5 h-3.5" />;
+      default: return <Clock className="w-3.5 h-3.5" />;
+    }
+  };
+
+  const getStatusColor = (status: string) => {
+    switch(status) {
+      case 'PENDING': return 'bg-slate-100 text-slate-700';
+      case 'PROCESSING': return 'bg-indigo-50 text-indigo-700';
+      case 'SHIPPED': return 'bg-sky-50 text-sky-700';
+      case 'DELIVERED': return 'bg-emerald-50 text-emerald-700';
+      case 'CANCELLED': return 'bg-rose-50 text-rose-700';
+      default: return 'bg-slate-100 text-slate-700';
+    }
+  };
 
   return (
-    <div className="max-w-7xl mx-auto">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900">Global Orders</h1>
-        <p className="text-gray-500 mt-1">Monitor and manage all B2B orders across the network.</p>
-      </div>
-
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-        <div className="p-6 border-b border-gray-100 bg-gray-50">
-          <div className="relative w-full max-w-md">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Search by Order ID or Dealer..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-12 pr-4 py-3 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 text-sm"
-            />
+    <div className="space-y-8">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 bg-sky-50 rounded-xl flex items-center justify-center border border-sky-100">
+            <PackageSearch className="w-6 h-6 text-sky-500" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-black text-slate-900">Order Management</h1>
+            <p className="text-slate-500 text-sm mt-1">Track and update customer and dealer orders</p>
           </div>
         </div>
+      </div>
 
-        {loading ? (
-          <div className="py-20 flex justify-center items-center">
-            <Loader2 className="h-8 w-8 text-sky-500 animate-spin" />
+      <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
+        <div className="p-6 border-b border-slate-100 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="relative">
+            <Search className="absolute left-4 top-3 w-5 h-5 text-slate-400" />
+            <input 
+              type="text"
+              placeholder="Search by ID, email, or business..."
+              value={searchQuery}
+              onChange={(e) => { setSearchQuery(e.target.value); setPage(1); }}
+              className="w-full pl-12 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-sky-500 focus:bg-white outline-none transition-all font-medium text-slate-700"
+            />
           </div>
-        ) : filteredOrders.length === 0 ? (
-          <div className="text-center py-20 text-gray-500">
-            <Package className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-            <p className="text-lg font-medium text-gray-900">No orders found</p>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="border-b border-gray-100 text-sm text-gray-500 bg-white">
-                  <th className="py-4 px-6 font-medium">Order ID</th>
-                  <th className="py-4 px-6 font-medium">Dealer/Customer</th>
-                  <th className="py-4 px-6 font-medium">Date</th>
-                  <th className="py-4 px-6 font-medium">Amount</th>
-                  <th className="py-4 px-6 font-medium">Payment</th>
-                  <th className="py-4 px-6 font-medium">Status</th>
-                  <th className="py-4 px-6 font-medium text-right">Actions</th>
+          <select 
+            value={statusFilter}
+            onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
+            className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-sky-500 focus:bg-white outline-none font-medium text-slate-700"
+          >
+            <option value="">All Order Statuses</option>
+            <option value="PENDING">Pending</option>
+            <option value="PROCESSING">Processing</option>
+            <option value="SHIPPED">Shipped</option>
+            <option value="DELIVERED">Delivered</option>
+            <option value="CANCELLED">Cancelled</option>
+          </select>
+          <select 
+            value={paymentFilter}
+            onChange={(e) => { setPaymentFilter(e.target.value); setPage(1); }}
+            className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-sky-500 focus:bg-white outline-none font-medium text-slate-700"
+          >
+            <option value="">All Payment Statuses</option>
+            <option value="PENDING">Pending</option>
+            <option value="SUCCESS">Success</option>
+            <option value="FAILED">Failed</option>
+            <option value="REFUNDED">Refunded</option>
+          </select>
+          <select 
+            value={refundFilter}
+            onChange={(e) => { setRefundFilter(e.target.value); setPage(1); }}
+            className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-sky-500 focus:bg-white outline-none font-medium text-slate-700"
+          >
+            <option value="">All Refund Statuses</option>
+            <option value="NONE">None</option>
+            <option value="INITIATED">Initiated</option>
+            <option value="PROCESSING">Processing</option>
+            <option value="COMPLETED">Completed</option>
+            <option value="FAILED">Failed</option>
+          </select>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="bg-slate-50/50 border-b border-slate-100 text-xs uppercase tracking-wider text-slate-500 font-bold">
+                <th className="p-6">Order Details</th>
+                <th className="p-6">Customer / Dealer</th>
+                <th className="p-6">Amount & Payment</th>
+                <th className="p-6">Order Status</th>
+                <th className="p-6">Refund Status</th>
+                <th className="p-6 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {loading ? (
+                Array.from({ length: 5 }).map((_, i) => (
+                  <tr key={i} className="animate-pulse">
+                    <td className="p-6"><div className="h-4 bg-slate-200 rounded w-32 mb-2"></div><div className="h-3 bg-slate-100 rounded w-24"></div></td>
+                    <td className="p-6"><div className="h-4 bg-slate-200 rounded w-40 mb-2"></div><div className="h-3 bg-slate-100 rounded w-20"></div></td>
+                    <td className="p-6"><div className="h-4 bg-slate-200 rounded w-24 mb-2"></div><div className="h-4 bg-slate-200 rounded-full w-20"></div></td>
+                    <td className="p-6"><div className="h-6 bg-slate-200 rounded-full w-24"></div></td>
+                    <td className="p-6"><div className="h-6 bg-slate-200 rounded-full w-24"></div></td>
+                    <td className="p-6"><div className="h-8 bg-slate-200 rounded w-16 ml-auto"></div></td>
+                  </tr>
+                ))
+              ) : orders.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="p-12 text-center text-slate-500">
+                    <PackageSearch className="w-12 h-12 mx-auto mb-3 text-slate-300" />
+                    <p className="font-medium text-lg text-slate-900 mb-1">No orders found</p>
+                    <p>Try adjusting your search criteria.</p>
+                  </td>
                 </tr>
-              </thead>
-              <tbody className="text-sm">
-                {filteredOrders.map((order) => (
-                  <tr key={order._id} className="border-b border-gray-50 hover:bg-gray-50/50 transition-colors">
-                    <td className="py-4 px-6 font-mono text-gray-900 font-medium">
-                      {order._id.slice(-8).toUpperCase()}
+              ) : (
+                orders.map((order, idx) => (
+                  <motion.tr 
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: idx * 0.05 }}
+                    key={order.id} 
+                    className="hover:bg-slate-50/80 transition-colors"
+                  >
+                    <td className="p-6">
+                      <p className="font-bold text-slate-900 text-sm font-mono truncate max-w-[120px]" title={order.id}>
+                        #{order.id.slice(0, 8).toUpperCase()}
+                      </p>
+                      <p className="text-xs text-slate-500 mt-1">
+                        {new Date(order.createdAt).toLocaleDateString()}
+                      </p>
                     </td>
-                    <td className="py-4 px-6">
-                      <div className="font-bold text-gray-900">{order.dealerProfile?.businessName || 'Direct Customer'}</div>
-                      <div className="text-xs text-gray-500">{order.user.email}</div>
+                    <td className="p-6">
+                      {order.businessName ? (
+                        <div>
+                          <p className="font-bold text-slate-900 text-sm flex items-center gap-1.5">
+                            <Building2 className="w-3.5 h-3.5 text-sky-500" />
+                            {order.businessName}
+                          </p>
+                          <p className="text-xs text-slate-500 mt-1">{order.userEmail}</p>
+                        </div>
+                      ) : (
+                        <div>
+                          <p className="font-bold text-slate-900 text-sm flex items-center gap-1.5">
+                            <UserCircle className="w-3.5 h-3.5 text-indigo-500" />
+                            {order.userEmail}
+                          </p>
+                          <p className="text-[10px] font-bold text-indigo-400 mt-1 uppercase tracking-wider">Direct Customer</p>
+                        </div>
+                      )}
                     </td>
-                    <td className="py-4 px-6 text-gray-600">
-                      {new Date(order.createdAt).toLocaleDateString()}
-                    </td>
-                    <td className="py-4 px-6 font-bold text-gray-900">
-                      ₹{order.totalAmount.toLocaleString('en-IN')}
-                    </td>
-                    <td className="py-4 px-6">
-                      <span className="bg-gray-100 text-gray-700 px-3 py-1 rounded-full text-xs font-medium uppercase">
-                        {order.paymentMethod.replace('_', ' ')}
+                    <td className="p-6">
+                      <p className="font-black text-slate-900">₹{order.totalAmount.toLocaleString()}</p>
+                      <span className={`mt-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold inline-flex items-center gap-1 ${
+                        order.paymentStatus === 'SUCCESS' ? 'bg-emerald-50 text-emerald-700' :
+                        order.paymentStatus === 'FAILED' ? 'bg-rose-50 text-rose-700' :
+                        order.paymentStatus === 'REFUNDED' ? 'bg-amber-50 text-amber-700' :
+                        'bg-slate-100 text-slate-600'
+                      }`}>
+                        <CreditCard className="w-3 h-3" />
+                        {order.paymentStatus}
                       </span>
                     </td>
-                    <td className="py-4 px-6">
-                      <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase ${
-                        order.status === 'delivered' ? 'bg-green-100 text-green-700' :
-                        order.status === 'processing' ? 'bg-blue-100 text-blue-700' :
-                        order.status === 'cancelled' ? 'bg-red-100 text-red-700' :
-                        'bg-orange-100 text-orange-700'
-                      }`}>
+                    <td className="p-6">
+                      <span className={`px-3 py-1.5 rounded-full text-xs font-bold inline-flex items-center gap-1.5 ${getStatusColor(order.status)}`}>
+                        {getStatusIcon(order.status)}
                         {order.status}
                       </span>
                     </td>
-                    <td className="py-4 px-6 text-right">
+                    <td className="p-6">
+                      <span className={`px-3 py-1.5 rounded-full text-xs font-bold inline-flex items-center gap-1.5 ${
+                        order.refundStatus === 'NONE' ? 'bg-slate-100 text-slate-500' :
+                        order.refundStatus === 'COMPLETED' ? 'bg-emerald-50 text-emerald-700' :
+                        order.refundStatus === 'FAILED' ? 'bg-rose-50 text-rose-700' :
+                        'bg-amber-50 text-amber-700'
+                      }`}>
+                        {order.refundStatus !== 'NONE' && <RotateCcw className="w-3.5 h-3.5" />}
+                        {order.refundStatus}
+                      </span>
+                    </td>
+                    <td className="p-6">
                       <div className="flex items-center justify-end gap-2">
-                        <button className="p-2 text-gray-400 hover:text-sky-600 hover:bg-sky-50 rounded-lg transition-colors">
-                          <Eye className="h-4 w-4" />
+                        <button 
+                          onClick={() => handleOpenStatusModal(order)}
+                          className="p-2 text-slate-400 hover:text-sky-600 hover:bg-sky-50 rounded-lg transition-colors"
+                          title="Update Order Status"
+                        >
+                          <Edit2 className="w-4 h-4" />
                         </button>
-                        <button className="p-2 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors">
-                          <CheckCircle className="h-4 w-4" />
-                        </button>
-                        <button className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
-                          <XCircle className="h-4 w-4" />
+                        <button 
+                          onClick={() => handleOpenRefundModal(order)}
+                          className="p-2 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"
+                          title="Manage Refunds"
+                        >
+                          <RotateCcw className="w-4 h-4" />
                         </button>
                       </div>
                     </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                  </motion.tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {meta.totalPages > 1 && (
+          <div className="p-6 border-t border-slate-100 flex items-center justify-between bg-slate-50/50">
+            <p className="text-sm font-medium text-slate-500">
+              Showing page {meta.currentPage} of {meta.totalPages} ({meta.totalCount} total orders)
+            </p>
+            <div className="flex gap-2">
+              <button 
+                onClick={() => setPage(p => Math.max(1, p - 1))}
+                disabled={meta.currentPage === 1}
+                className="p-2 border border-slate-200 rounded-lg hover:bg-white disabled:opacity-50 transition-colors"
+              >
+                <ChevronLeft className="w-5 h-5 text-slate-600" />
+              </button>
+              <button 
+                onClick={() => setPage(p => Math.min(meta.totalPages, p + 1))}
+                disabled={meta.currentPage === meta.totalPages}
+                className="p-2 border border-slate-200 rounded-lg hover:bg-white disabled:opacity-50 transition-colors"
+              >
+                <ChevronRight className="w-5 h-5 text-slate-600" />
+              </button>
+            </div>
           </div>
         )}
       </div>
+
+      <AnimatePresence>
+        {isStatusModalOpen && selectedOrder && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden">
+              <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+                <div>
+                  <h2 className="text-xl font-black text-slate-900">Update Order Status</h2>
+                  <p className="text-xs text-slate-500 font-mono mt-1">#{selectedOrder.id}</p>
+                </div>
+                <button onClick={() => setIsStatusModalOpen(false)} className="text-slate-400 hover:text-slate-600 bg-white p-2 rounded-full shadow-sm"><X className="w-5 h-5" /></button>
+              </div>
+              <form onSubmit={handleUpdateStatus} className="p-6 space-y-5">
+                <div>
+                  <label className="block text-sm font-bold text-slate-700 mb-2">Select New Status</label>
+                  <select 
+                    value={statusData.status} 
+                    onChange={e => setStatusData({ status: e.target.value })} 
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-sky-500 outline-none"
+                  >
+                    <option value="PENDING">PENDING</option>
+                    <option value="PROCESSING">PROCESSING</option>
+                    <option value="SHIPPED">SHIPPED</option>
+                    <option value="DELIVERED">DELIVERED</option>
+                    <option value="CANCELLED">CANCELLED</option>
+                  </select>
+                </div>
+                <div className="pt-4 flex gap-3">
+                  <button type="button" onClick={() => setIsStatusModalOpen(false)} className="flex-1 py-3 bg-slate-100 text-slate-700 rounded-xl font-bold hover:bg-slate-200 transition-colors">Cancel</button>
+                  <button type="submit" disabled={statusLoading} className="flex-1 py-3 bg-sky-500 text-white rounded-xl font-bold flex justify-center items-center disabled:opacity-50 hover:bg-sky-600 transition-colors">
+                    {statusLoading ? 'Updating...' : 'Save Status'}
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {isRefundModalOpen && selectedOrder && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden">
+              <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+                <div>
+                  <h2 className="text-xl font-black text-slate-900">Manage Refund</h2>
+                  <p className="text-xs text-slate-500 font-mono mt-1">#{selectedOrder.id}</p>
+                </div>
+                <button onClick={() => setIsRefundModalOpen(false)} className="text-slate-400 hover:text-slate-600 bg-white p-2 rounded-full shadow-sm"><X className="w-5 h-5" /></button>
+              </div>
+              <form onSubmit={handleUpdateRefund} className="p-6 space-y-5">
+                <div>
+                  <label className="block text-sm font-bold text-slate-700 mb-2">Refund Status</label>
+                  <select 
+                    value={refundData.refundStatus} 
+                    onChange={e => setRefundData({ refundStatus: e.target.value })} 
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-amber-500 outline-none"
+                  >
+                    <option value="NONE">NONE</option>
+                    <option value="INITIATED">INITIATED</option>
+                    <option value="PROCESSING">PROCESSING</option>
+                    <option value="COMPLETED">COMPLETED</option>
+                    <option value="FAILED">FAILED</option>
+                  </select>
+                </div>
+                <div className="pt-4 flex gap-3">
+                  <button type="button" onClick={() => setIsRefundModalOpen(false)} className="flex-1 py-3 bg-slate-100 text-slate-700 rounded-xl font-bold hover:bg-slate-200 transition-colors">Cancel</button>
+                  <button type="submit" disabled={refundLoading} className="flex-1 py-3 bg-amber-500 text-white rounded-xl font-bold flex justify-center items-center disabled:opacity-50 hover:bg-amber-600 transition-colors">
+                    {refundLoading ? 'Updating...' : 'Update Refund'}
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

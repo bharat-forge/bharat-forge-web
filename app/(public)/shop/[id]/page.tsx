@@ -1,241 +1,253 @@
 "use client";
 
-import { useEffect, useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import Image from 'next/image';
-import { motion } from 'framer-motion';
-import { fetchProductById } from '@/api/products';
-import { useSelector } from 'react-redux';
+import { useSelector, useDispatch } from 'react-redux';
 import { RootState } from '@/store/store';
-import { Loader2, ArrowLeft, ShieldCheck, Truck, Package, ChevronRight } from 'lucide-react';
+import { setCart } from '@/store/slices/cartSlice';
+import { getProductDetails } from '@/api/public/catalog';
+import { addToCart, getMyCart } from '@/api/shared/cart';
+import { submitProductReview } from '@/api/user/productReviews';
+import { Loader2, Star, ShoppingCart, ShieldCheck, MapPin, MessageSquareText, Send } from 'lucide-react';
+import { motion } from 'framer-motion';
 import Link from 'next/link';
 
-interface PricingTier {
-  minQuantity: number;
-  price: number;
-}
-
-interface Product {
-  _id: string;
-  name: string;
-  sku: string;
-  hsnCode: string;
-  category: { name: string; slug: string };
-  description: string;
-  specifications: Record<string, string>;
-  images: string[];
-  basePrice: number;
-  bulkPricing: PricingTier[];
-  moq: number;
-  stock: number;
-  certifications: string[];
-  warrantyInfo: string;
-}
-
-export default function ProductDetailPage() {
-  const params = useParams();
+export default function ProductDetailsPage() {
+  const { id } = useParams();
   const router = useRouter();
-  const { user, isAuthenticated } = useSelector((state: RootState) => state.auth);
+  const dispatch = useDispatch();
+  const { isAuthenticated, user } = useSelector((state: RootState) => state.auth);
   
-  const [product, setProduct] = useState<Product | null>(null);
+  const [product, setProduct] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [activeImage, setActiveImage] = useState(0);
   const [quantity, setQuantity] = useState(1);
+  const [addingToCart, setAddingToCart] = useState(false);
+  const [cartMsg, setCartMsg] = useState('');
+
+  const [reviewRating, setReviewRating] = useState(5);
+  const [reviewText, setReviewText] = useState('');
+  const [submittingReview, setSubmittingReview] = useState(false);
+
+  const fetchProduct = async () => {
+    try {
+      const { data } = await getProductDetails(id as string);
+      setProduct(data);
+    } catch (error) {
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const loadProduct = async () => {
-      try {
-        const data = await fetchProductById(params.id as string);
-        setProduct(data);
-        setQuantity(data.moq || 1);
-      } catch (error) {
-        console.error("Failed to load product", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    if (params.id) loadProduct();
-  }, [params.id]);
+    if (id) fetchProduct();
+  }, [id]);
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex justify-center items-center bg-gray-50">
-        <Loader2 className="h-12 w-12 text-sky-500 animate-spin" />
-      </div>
-    );
-  }
-
-  if (!product) {
-    return (
-      <div className="min-h-screen flex flex-col justify-center items-center bg-gray-50">
-        <h2 className="text-2xl font-bold text-gray-900 mb-4">Product not found</h2>
-        <button onClick={() => router.back()} className="text-sky-600 hover:text-sky-700 font-medium flex items-center">
-          <ArrowLeft className="h-4 w-4 mr-2" /> Go Back
-        </button>
-      </div>
-    );
-  }
-
-  const isDealer = isAuthenticated && user?.role === 'dealer';
-  
-  let currentPrice = product.basePrice;
-  if (isDealer && product.bulkPricing?.length > 0) {
-    const applicableTier = [...product.bulkPricing]
-      .sort((a, b) => b.minQuantity - a.minQuantity)
-      .find(tier => quantity >= tier.minQuantity);
-    if (applicableTier) {
-      currentPrice = applicableTier.price;
+  const handleAddToCart = async () => {
+    if (!isAuthenticated) {
+      setCartMsg('Please login to add items to cart.');
+      return;
     }
-  }
+    setAddingToCart(true);
+    setCartMsg('');
+    try {
+      await addToCart({ productId: product.id, quantity });
+      
+      const cartRes = await getMyCart();
+      const items = Array.isArray(cartRes.data) ? cartRes.data : cartRes.data?.items || [];
+      dispatch(setCart(items));
+
+      setCartMsg('Added to cart successfully!');
+      setTimeout(() => setCartMsg(''), 3000);
+    } catch (err: any) {
+      setCartMsg(err.response?.data?.message || 'Failed to add to cart');
+    } finally {
+      setAddingToCart(false);
+    }
+  };
+
+  const handleReviewSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!isAuthenticated) return router.push('/login');
+    if (!reviewText.trim()) return;
+    
+    setSubmittingReview(true);
+    try {
+      await submitProductReview({ productId: product.id, rating: reviewRating, comment: reviewText });
+      setReviewText('');
+      setReviewRating(5);
+      await fetchProduct();
+      alert('Review submitted successfully!');
+    } catch (error: any) {
+      alert(error.response?.data?.message || 'Failed to submit review.');
+    } finally {
+      setSubmittingReview(false);
+    }
+  };
+
+  if (loading) return <div className="min-h-screen flex items-center justify-center bg-slate-50"><Loader2 className="h-8 w-8 animate-spin text-sky-500" /></div>;
+  if (!product) return <div className="min-h-screen flex items-center justify-center bg-slate-50 text-xl font-bold text-slate-700">Product not found.</div>;
 
   return (
-    <div className="bg-gray-50 min-h-screen pb-24 pt-8">
-      <div className="max-w-7xl mx-auto px-4">
-        <div className="flex items-center text-sm text-gray-500 mb-8">
-          <Link href="/" className="hover:text-sky-600">Home</Link>
-          <ChevronRight className="h-4 w-4 mx-2" />
-          <Link href="/shop" className="hover:text-sky-600">Catalog</Link>
-          <ChevronRight className="h-4 w-4 mx-2" />
-          <span className="text-gray-900 font-medium">{product.category?.name}</span>
-        </div>
+    <div className="min-h-screen bg-slate-50 relative pb-20">
+      <div className="absolute inset-0 z-0 h-[40vh] w-full bg-[linear-gradient(to_right,#0ea5e915_1px,transparent_1px),linear-gradient(to_bottom,#0ea5e915_1px,transparent_1px)] bg-[size:2rem_2rem] [mask-image:linear-gradient(to_bottom,white,transparent)]" />
 
-        <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
-          <div className="grid grid-cols-1 lg:grid-cols-2">
-            <div className="p-8 lg:border-r border-gray-100">
-              <div className="relative aspect-square bg-gray-50 rounded-2xl overflow-hidden mb-6 border border-gray-100">
-                <Image 
-                  src={product.images[activeImage] || 'https://images.unsplash.com/photo-1620064567006-25807ebc6319?auto=format&fit=crop&q=80&w=800'} 
-                  alt={product.name}
-                  fill
-                  className="object-cover"
-                />
-              </div>
-              {product.images.length > 1 && (
-                <div className="grid grid-cols-4 gap-4">
-                  {product.images.map((img, idx) => (
-                    <button 
-                      key={idx}
-                      onClick={() => setActiveImage(idx)}
-                      className={`relative aspect-square rounded-xl overflow-hidden border-2 transition-all ${activeImage === idx ? 'border-sky-500 shadow-md' : 'border-transparent hover:border-gray-200'}`}
-                    >
-                      <Image src={img} alt={`${product.name} ${idx + 1}`} fill className="object-cover" />
-                    </button>
-                  ))}
-                </div>
-              )}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 pt-12">
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden mb-8">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-0">
+            <div className="bg-white aspect-square p-12 flex items-center justify-center relative">
+              <img src={product.images?.[0] || '/logo.svg'} alt={product.name} className="max-w-full max-h-full object-contain drop-shadow-2xl" />
             </div>
 
-            <div className="p-8 lg:p-12 flex flex-col">
-              <div className="mb-2">
-                <span className="text-xs font-bold tracking-wider text-sky-600 bg-sky-50 px-3 py-1 rounded-full uppercase">
-                  {product.category?.name}
-                </span>
-              </div>
-              <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">{product.name}</h1>
-              
-              <div className="flex flex-wrap items-center gap-6 text-sm text-gray-500 mb-8 pb-8 border-b border-gray-100">
-                <div>SKU: <span className="font-mono text-gray-900">{product.sku}</span></div>
-                <div>HSN: <span className="font-mono text-gray-900">{product.hsnCode}</span></div>
-                <div className={`flex items-center font-medium ${product.stock > 0 ? 'text-green-600' : 'text-red-500'}`}>
-                  {product.stock > 0 ? `${product.stock} in stock` : 'Out of stock'}
+            <div className="p-10 lg:p-14 flex flex-col justify-center border-l border-slate-50">
+              <div className="mb-4 flex flex-col items-start gap-2">
+                <div className="flex items-center gap-3">
+                  <span className="px-3 py-1 bg-sky-50 text-sky-600 text-[10px] font-black rounded-full tracking-wider uppercase">{product.categoryName}</span>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">SKU: {product.sku}</span>
                 </div>
+              </div>
+              
+              <h1 className="text-4xl font-black text-slate-900 leading-tight mb-4">{product.name}</h1>
+              
+              <div className="flex items-center gap-2 mb-8">
+                <div className="flex gap-1">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <Star key={star} className={`h-5 w-5 ${star <= Math.round(product.averageRating) ? 'fill-amber-400 text-amber-400' : 'text-slate-200 fill-slate-200'}`} />
+                  ))}
+                </div>
+                <span className="text-lg font-bold text-slate-800 ml-1">{product.averageRating.toFixed(1)}</span>
+                <span className="text-sm font-medium text-slate-400">({product.reviewCount} verified reviews)</span>
               </div>
 
               <div className="mb-8">
-                <div className="text-sm text-gray-500 mb-2">Price per unit</div>
-                <div className="text-4xl font-bold text-gray-900 flex items-end gap-3">
-                  ₹{currentPrice.toLocaleString('en-IN')}
-                  {isDealer && quantity >= (product.bulkPricing?.[0]?.minQuantity || 0) && (
-                    <span className="text-lg text-gray-400 line-through mb-1">₹{product.basePrice.toLocaleString('en-IN')}</span>
-                  )}
-                </div>
+                <p className="text-[10px] uppercase font-bold text-slate-400 mb-2 tracking-wider">Wholesale Base Price</p>
+                <p className="text-5xl font-black text-slate-900">₹{product.basePrice.toLocaleString()}</p>
               </div>
 
-              {isDealer && product.bulkPricing?.length > 0 && (
-                <div className="mb-8 bg-sky-50 rounded-2xl p-6 border border-sky-100">
-                  <h4 className="font-bold text-sky-900 mb-4 text-sm uppercase tracking-wider">Dealer Bulk Pricing</h4>
-                  <div className="space-y-3">
-                    <div className="flex justify-between text-sm text-sky-700 pb-2 border-b border-sky-200/50">
-                      <span>Quantity</span>
-                      <span>Price / Unit</span>
-                    </div>
-                    {product.bulkPricing.map((tier, idx) => (
-                      <div key={idx} className="flex justify-between font-medium text-sky-900">
-                        <span>{tier.minQuantity}+ units</span>
-                        <span>₹{tier.price.toLocaleString('en-IN')}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
+              <p className="text-slate-600 text-base leading-relaxed mb-10">{product.description}</p>
 
-              <div className="flex items-center gap-4 mb-8">
-                <div className="flex items-center border border-gray-200 rounded-xl bg-gray-50">
-                  <button 
-                    onClick={() => setQuantity(Math.max(product.moq || 1, quantity - 1))}
-                    className="px-5 py-4 text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded-l-xl transition-colors font-medium"
-                  >-</button>
-                  <div className="px-6 py-4 font-bold text-gray-900 min-w-[4rem] text-center border-x border-gray-200 bg-white">
-                    {quantity}
-                  </div>
-                  <button 
-                    onClick={() => setQuantity(Math.min(product.stock, quantity + 1))}
-                    className="px-5 py-4 text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded-r-xl transition-colors font-medium"
-                  >+</button>
+              <div className="flex flex-col sm:flex-row gap-4 mb-4">
+                <div className="flex items-center border border-slate-200 rounded-2xl bg-white w-full sm:w-32 shadow-sm">
+                  <button onClick={() => setQuantity(Math.max(1, quantity - 1))} className="px-4 py-3 text-slate-400 hover:text-slate-900 font-bold text-xl transition-colors">-</button>
+                  <input type="text" value={quantity} readOnly className="w-full text-center bg-transparent font-bold text-slate-900 outline-none" />
+                  <button onClick={() => setQuantity(quantity + 1)} className="px-4 py-3 text-slate-400 hover:text-slate-900 font-bold text-xl transition-colors">+</button>
                 </div>
                 <button 
-                  disabled={product.stock === 0}
-                  className="flex-1 bg-sky-500 hover:bg-sky-600 text-white font-bold py-4 rounded-xl shadow-lg shadow-sky-500/30 transition-all disabled:opacity-50 flex items-center justify-center"
+                  onClick={handleAddToCart} disabled={addingToCart}
+                  className="flex-1 flex justify-center items-center gap-2 py-4 px-8 rounded-2xl font-bold text-white bg-sky-600 hover:bg-sky-700 transition-colors disabled:opacity-50 shadow-sm"
                 >
-                  <Package className="h-5 w-5 mr-2" />
+                  {addingToCart ? <Loader2 className="animate-spin h-5 w-5" /> : <ShoppingCart className="h-5 w-5" />}
                   Add to Cart
                 </button>
               </div>
+              {cartMsg && <p className={`text-sm font-medium ${cartMsg.includes('success') ? 'text-emerald-600' : 'text-rose-600'}`}>{cartMsg}</p>}
+            </div>
+          </div>
+        </motion.div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-8 border-t border-gray-100">
-                <div className="flex items-start">
-                  <ShieldCheck className="h-6 w-6 text-sky-500 mr-3 flex-shrink-0" />
-                  <div>
-                    <h5 className="font-bold text-gray-900 text-sm">Certified Genuine</h5>
-                    <p className="text-xs text-gray-500 mt-1">{product.certifications?.join(', ')}</p>
-                  </div>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div className="lg:col-span-2 space-y-8">
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="bg-white rounded-3xl p-10 border border-slate-100 shadow-sm">
+              <h3 className="text-2xl font-bold text-slate-900 mb-6">Technical Specifications</h3>
+              {product.compatibilities ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {Object.entries(product.compatibilities).map(([key, value]) => (
+                    <div key={key} className="p-5 rounded-2xl bg-slate-50 border border-slate-100">
+                      <p className="text-xs font-bold text-slate-400 mb-1 uppercase tracking-wider">{key}</p>
+                      <p className="font-bold text-slate-900">{String(value)}</p>
+                    </div>
+                  ))}
                 </div>
-                <div className="flex items-start">
-                  <Truck className="h-6 w-6 text-sky-500 mr-3 flex-shrink-0" />
-                  <div>
-                    <h5 className="font-bold text-gray-900 text-sm">Nationwide Delivery</h5>
-                    <p className="text-xs text-gray-500 mt-1">Dispatched within 24-48 hours</p>
+              ) : (
+                <p className="text-slate-500 font-medium">No specific compatibilities listed.</p>
+              )}
+            </motion.div>
+
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="bg-white rounded-3xl p-10 border border-slate-100 shadow-sm">
+              <h3 className="text-2xl font-bold text-slate-900 mb-8">Customer Reviews</h3>
+              
+              {(!user || user.role === 'USER') && (
+                <form onSubmit={handleReviewSubmit} className="mb-12 bg-slate-50 p-6 rounded-2xl border border-slate-100">
+                  <h4 className="font-bold text-slate-900 mb-4">Write a Review</h4>
+                  <div className="flex items-center gap-2 mb-4">
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <button type="button" key={star} onClick={() => setReviewRating(star)} className="focus:outline-none transition-transform hover:scale-110">
+                        <Star className={`h-8 w-8 ${star <= reviewRating ? 'fill-amber-400 text-amber-400' : 'text-slate-300'}`} />
+                      </button>
+                    ))}
                   </div>
-                </div>
+                  <div className="relative">
+                    <textarea
+                      required
+                      value={reviewText}
+                      onChange={(e) => setReviewText(e.target.value)}
+                      placeholder={isAuthenticated ? "Share your experience with this product..." : "Please log in to write a review"}
+                      disabled={!isAuthenticated || submittingReview}
+                      className="w-full px-5 py-4 bg-white border border-slate-200 rounded-2xl focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 outline-none resize-none min-h-[120px] transition-colors disabled:bg-slate-50 text-sm"
+                    />
+                    <button type="submit" disabled={!isAuthenticated || submittingReview || !reviewText.trim()} className="absolute bottom-4 right-4 p-3 bg-sky-600 text-white rounded-xl hover:bg-sky-700 disabled:opacity-50 transition-colors shadow-sm">
+                      {submittingReview ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                    </button>
+                  </div>
+                </form>
+              )}
+
+              <div className="space-y-6">
+                {product.reviews && product.reviews.length > 0 ? (
+                  product.reviews.map((review: any) => (
+                    <div key={review.id} className="pb-6 border-b border-slate-100 last:border-0 last:pb-0">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-3">
+                          <span className="font-bold text-slate-900">{review.userEmail?.split('@')[0] || 'Verified Buyer'}</span>
+                          <div className="flex">
+                            {[...Array(5)].map((_, i) => (
+                              <Star key={i} className={`h-3.5 w-3.5 ${i < review.rating ? 'fill-amber-400 text-amber-400' : 'text-slate-200'}`} />
+                            ))}
+                          </div>
+                        </div>
+                        <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">{new Date(review.createdAt).toLocaleDateString()}</span>
+                      </div>
+                      <p className="text-slate-600 leading-relaxed text-sm mt-3">{review.comment}</p>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-center py-8">
+                    <MessageSquareText className="h-12 w-12 text-slate-200 mx-auto mb-3" />
+                    <p className="text-slate-500 font-medium">No reviews yet. Be the first to review this product!</p>
+                  </div>
+                )}
               </div>
-
-            </div>
+            </motion.div>
           </div>
-        </div>
 
-        <div className="mt-8 grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-2 bg-white rounded-3xl p-8 lg:p-12 shadow-sm border border-gray-100">
-            <h3 className="text-2xl font-bold text-gray-900 mb-6">Product Description</h3>
-            <div className="prose max-w-none text-gray-600 leading-relaxed">
-              {product.description}
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="bg-slate-900 rounded-3xl p-8 shadow-sm text-white h-fit sticky top-28">
+            <div className="flex items-center gap-3 mb-6">
+              <ShieldCheck className="h-8 w-8 text-sky-400" />
+              <h3 className="text-xl font-bold">Authorized Dealers</h3>
             </div>
+            <p className="text-slate-400 text-sm mb-6 leading-relaxed">Purchase directly or get support from our certified partners in your region.</p>
             
-            <h3 className="text-2xl font-bold text-gray-900 mt-12 mb-6">Warranty Information</h3>
-            <p className="text-gray-600 leading-relaxed">{product.warrantyInfo}</p>
-          </div>
-
-          <div className="bg-white rounded-3xl p-8 lg:p-12 shadow-sm border border-gray-100 h-fit">
-            <h3 className="text-xl font-bold text-gray-900 mb-6">Specifications</h3>
             <div className="space-y-4">
-              {product.specifications && Object.entries(product.specifications).map(([key, value]) => (
-                <div key={key} className="flex flex-col border-b border-gray-100 pb-4 last:border-0 last:pb-0">
-                  <span className="text-sm text-gray-500 mb-1">{key}</span>
-                  <span className="font-medium text-gray-900">{value as string}</span>
+              {product.authorizedDealers && product.authorizedDealers.length > 0 ? (
+                product.authorizedDealers.map((dealer: any) => (
+                  <div key={dealer.id} className="p-5 rounded-2xl bg-slate-800/50 border border-slate-700 hover:border-slate-600 transition-colors">
+                    <h4 className="font-bold text-white mb-2">{dealer.businessName}</h4>
+                    <div className="flex items-center gap-2 text-slate-400 text-sm mb-4">
+                      <MapPin className="h-4 w-4 text-sky-400" /> {dealer.city}, {dealer.state}
+                    </div>
+                    <Link href={`/dealer-profile/${dealer.id}`} className="w-full py-2.5 bg-slate-700/50 hover:bg-sky-600 text-white rounded-xl text-sm font-semibold transition-colors flex items-center justify-center gap-2">
+                      <MessageSquareText className="h-4 w-4" /> View Profile & Contact
+                    </Link>
+                  </div>
+                ))
+              ) : (
+                <div className="text-center p-6 bg-slate-800/50 rounded-2xl border border-slate-700">
+                  <p className="text-slate-400 text-sm font-medium leading-relaxed">No localized dealers available for this product yet. Please purchase directly.</p>
                 </div>
-              ))}
+              )}
             </div>
-          </div>
+          </motion.div>
         </div>
+
       </div>
     </div>
   );

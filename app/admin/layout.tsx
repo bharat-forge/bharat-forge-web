@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useEffect, useState } from 'react';
+import { useRouter, usePathname } from 'next/navigation';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/store/store';
 import AdminSidebar from '@/components/layout/AdminSidebar';
@@ -13,15 +13,32 @@ export default function AdminLayout({
 }) {
   const { user, isAuthenticated } = useSelector((state: RootState) => state.auth);
   const router = useRouter();
+  const pathname = usePathname();
+  const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
-    if (!isAuthenticated || user?.role !== 'admin') {
-      router.push('/login');
-    }
-  }, [isAuthenticated, user, router]);
+    setIsMounted(true);
+  }, []);
 
-  if (!isAuthenticated || user?.role !== 'admin') {
-    return null;
+  useEffect(() => {
+    if (!isMounted) return;
+
+    if (!isAuthenticated) {
+      router.replace('/login');
+      return;
+    }
+
+    if (user && user.role !== 'ADMIN') {
+      router.replace('/login');
+    }
+  }, [isMounted, isAuthenticated, user, router, pathname]);
+
+  if (!isMounted || !isAuthenticated || user?.role !== 'ADMIN') {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <div className="w-12 h-12 border-4 border-slate-200 border-t-sky-500 rounded-full animate-spin"></div>
+      </div>
+    );
   }
 
   return (
