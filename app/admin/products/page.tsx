@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Plus, Search, Edit2, Trash2, X, Package, AlertCircle, 
   RefreshCw, ChevronLeft, ChevronRight, Image as ImageIcon, 
-  MessageSquare, Star, Code, Shield
+  MessageSquare, Star, Code, Shield, PlusCircle, Settings2
 } from 'lucide-react';
 import { 
   getPaginatedProducts,
@@ -35,10 +35,14 @@ export default function AdminProductsPage() {
   
   const [formData, setFormData] = useState({
     name: '', sku: '', hsnCode: '', categoryId: '', description: '', 
-    basePrice: '', moq: '1', stock: '0', warrantyInfo: '',
-    certifications: '[]', specifications: '{}', bulkPricing: '[]'
+    basePrice: '', moq: '1', stock: '0', warrantyInfo: ''
   });
-  const [compatibilitiesData, setCompatibilitiesData] = useState('{}');
+  
+  const [certificationsList, setCertificationsList] = useState<{ id: string; value: string }[]>([]);
+  const [specsList, setSpecsList] = useState<{ id: string; key: string; value: string }[]>([]);
+  const [bulkPricingList, setBulkPricingList] = useState<{ id: string; qty: string; discount: string }[]>([]);
+  const [compatibilities, setCompatibilities] = useState<Record<string, string>>({});
+  
   const [imageFiles, setImageFiles] = useState<File[]>([]);
   
   const [formLoading, setFormLoading] = useState(false);
@@ -102,24 +106,50 @@ export default function AdminProductsPage() {
           basePrice: product.basePrice?.toString() || '',
           moq: product.moq?.toString() || '1',
           stock: product.stock?.toString() || '0',
-          warrantyInfo: product.warrantyInfo || '',
-          certifications: product.certifications ? JSON.stringify(product.certifications, null, 2) : '[]',
-          specifications: product.specifications ? JSON.stringify(product.specifications, null, 2) : '{}',
-          bulkPricing: product.bulkPricing ? JSON.stringify(product.bulkPricing, null, 2) : '[]'
+          warrantyInfo: product.warrantyInfo || ''
         });
+        
+        const certs = product.certifications || [];
+        setCertificationsList(certs.map((c: string) => ({ id: Math.random().toString(), value: c })));
+        
+        const specs = product.specifications || {};
+        setSpecsList(Object.entries(specs).map(([k, v]) => ({ id: Math.random().toString(), key: k, value: v as string })));
+        
+        const bulk = product.bulkPricing || {};
+        setBulkPricingList(Object.entries(bulk).map(([k, v]) => ({ id: Math.random().toString(), qty: k, discount: v as string })));
       } else if (mode === 'COMPATIBILITY') {
-        setCompatibilitiesData(product.compatibilities ? JSON.stringify(product.compatibilities, null, 2) : '{}');
+        setCompatibilities(product.compatibilities || {});
       }
     } else {
       setSelectedProduct(null);
       setFormData({
         name: '', sku: '', hsnCode: '', categoryId: '', description: '', 
-        basePrice: '', moq: '1', stock: '0', warrantyInfo: '',
-        certifications: '[]', specifications: '{}', bulkPricing: '[]'
+        basePrice: '', moq: '1', stock: '0', warrantyInfo: ''
       });
-      setCompatibilitiesData('{}');
+      setCertificationsList([]);
+      setSpecsList([]);
+      setBulkPricingList([]);
+      setCompatibilities({});
     }
     setIsModalOpen(true);
+  };
+
+  const formatListToObject = (list: { key: string; value: string }[]) => {
+    return list.reduce((acc, curr) => {
+      if (curr.key.trim() && curr.value.trim()) {
+        acc[curr.key.trim()] = curr.value.trim();
+      }
+      return acc;
+    }, {} as Record<string, string>);
+  };
+
+  const formatBulkPricing = (list: { qty: string; discount: string }[]) => {
+    return list.reduce((acc, curr) => {
+      if (curr.qty.trim() && curr.discount.trim()) {
+        acc[curr.qty.trim()] = parseFloat(curr.discount.trim()) || 0;
+      }
+      return acc;
+    }, {} as Record<string, number>);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -128,10 +158,17 @@ export default function AdminProductsPage() {
     setError('');
     
     try {
+      const certifications = certificationsList.map(c => c.value.trim()).filter(Boolean);
+      const specifications = formatListToObject(specsList);
+      const bulkPricing = formatBulkPricing(bulkPricingList);
+
       if (modalMode === 'CREATE') {
         const data = new FormData();
         Object.entries(formData).forEach(([key, value]) => data.append(key, value));
-        data.append('compatibilities', compatibilitiesData);
+        data.append('certifications', JSON.stringify(certifications));
+        data.append('specifications', JSON.stringify(specifications));
+        data.append('bulkPricing', JSON.stringify(bulkPricing));
+        data.append('compatibilities', JSON.stringify(compatibilities));
         imageFiles.forEach(file => data.append('images', file));
         await createProduct(data);
       } else if (modalMode === 'EDIT_BASE') {
@@ -145,13 +182,13 @@ export default function AdminProductsPage() {
           moq: parseInt(formData.moq),
           stock: parseInt(formData.stock),
           warrantyInfo: formData.warrantyInfo,
-          certifications: JSON.parse(formData.certifications),
-          specifications: JSON.parse(formData.specifications),
-          bulkPricing: JSON.parse(formData.bulkPricing)
+          certifications,
+          specifications,
+          bulkPricing
         });
       } else if (modalMode === 'COMPATIBILITY') {
         await updateProductCompatibilities(selectedProduct.id, {
-          compatibilities: JSON.parse(compatibilitiesData)
+          compatibilities
         });
       }
       setIsModalOpen(false);
@@ -217,6 +254,10 @@ export default function AdminProductsPage() {
       alert(err.response?.data?.message || 'Failed to update review status');
     }
   };
+
+  const activeCategoryId = modalMode === 'CREATE' || modalMode === 'EDIT_BASE' ? formData.categoryId : selectedProduct?.categoryId;
+  const activeCategory = categories.find(c => c.id === activeCategoryId);
+  const activeBlueprintFilters = activeCategory?.searchBlueprint?.filters || [];
 
   return (
     <div className="space-y-8">
@@ -383,7 +424,7 @@ export default function AdminProductsPage() {
                           className="p-2 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
                           title="Edit Compatibility Matrix"
                         >
-                          <Code className="w-4 h-4" />
+                          <Settings2 className="w-4 h-4" />
                         </button>
                         <button 
                           onClick={() => handleOpenModal('EDIT_BASE', product)}
@@ -435,18 +476,18 @@ export default function AdminProductsPage() {
 
       <AnimatePresence>
         {isModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+          <div className="fixed inset-0 z-50 flex items-start justify-center p-4 bg-slate-900/50 backdrop-blur-sm overflow-y-auto">
             <motion.div 
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              className={`bg-white rounded-3xl shadow-2xl w-full ${modalMode === 'CREATE' ? 'max-w-5xl' : 'max-w-3xl'} overflow-hidden max-h-[90vh] flex flex-col`}
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className={`bg-white rounded-3xl shadow-2xl w-full ${modalMode === 'CREATE' ? 'max-w-5xl' : 'max-w-4xl'} overflow-hidden max-h-[95vh] flex flex-col my-4`}
             >
-              <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50 flex-shrink-0">
+              <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50 flex-shrink-0 sticky top-0 z-20">
                 <h2 className="text-xl font-black text-slate-900">
                   {modalMode === 'CREATE' ? 'Create New Product' : 
                    modalMode === 'EDIT_BASE' ? 'Edit Product Details' : 
-                   'Edit Compatibility Matrix'}
+                   'Configure Compatibility Matrix'}
                 </h2>
                 <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-600 bg-white p-2 rounded-full shadow-sm">
                   <X className="w-5 h-5" />
@@ -461,73 +502,102 @@ export default function AdminProductsPage() {
                   </div>
                 )}
 
-                <form id="productForm" onSubmit={handleSubmit} className="space-y-6">
+                <form id="productForm" onSubmit={handleSubmit} className="space-y-10">
                   {(modalMode === 'CREATE' || modalMode === 'EDIT_BASE') && (
                     <>
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        <div>
-                          <label className="block text-sm font-bold text-slate-700 mb-1">Product Name</label>
-                          <input required type="text" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-sky-500 outline-none" />
+                      <div className="space-y-5">
+                        <h3 className="text-base font-black text-slate-800 border-b border-slate-100 pb-2 flex items-center gap-2">
+                          <Package className="w-5 h-5 text-sky-500" /> Basic Details
+                        </h3>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                          <div>
+                            <label className="block text-sm font-bold text-slate-700 mb-1">Product Name</label>
+                            <input required type="text" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-sky-500 outline-none" />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-bold text-slate-700 mb-1">SKU</label>
+                            <input required type="text" value={formData.sku} onChange={e => setFormData({...formData, sku: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-sky-500 outline-none" />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-bold text-slate-700 mb-1">Category</label>
+                            <select required value={formData.categoryId} onChange={e => setFormData({...formData, categoryId: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-sky-500 outline-none">
+                              <option value="">Select Category</option>
+                              {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                            </select>
+                          </div>
                         </div>
-                        <div>
-                          <label className="block text-sm font-bold text-slate-700 mb-1">SKU</label>
-                          <input required type="text" value={formData.sku} onChange={e => setFormData({...formData, sku: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-sky-500 outline-none" />
+
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                          <div>
+                            <label className="block text-sm font-bold text-slate-700 mb-1">Base Price (₹)</label>
+                            <input required type="number" step="0.01" value={formData.basePrice} onChange={e => setFormData({...formData, basePrice: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-sky-500 outline-none" />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-bold text-slate-700 mb-1">Stock</label>
+                            <input required type="number" value={formData.stock} onChange={e => setFormData({...formData, stock: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-sky-500 outline-none" />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-bold text-slate-700 mb-1">MOQ</label>
+                            <input required type="number" min="1" value={formData.moq} onChange={e => setFormData({...formData, moq: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-sky-500 outline-none" />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-bold text-slate-700 mb-1">HSN Code</label>
+                            <input required type="text" value={formData.hsnCode} onChange={e => setFormData({...formData, hsnCode: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-sky-500 outline-none" />
+                          </div>
                         </div>
+
                         <div>
-                          <label className="block text-sm font-bold text-slate-700 mb-1">Category</label>
-                          <select required value={formData.categoryId} onChange={e => setFormData({...formData, categoryId: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-sky-500 outline-none">
-                            <option value="">Select Category</option>
-                            {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                          </select>
+                          <label className="block text-sm font-bold text-slate-700 mb-1">Description</label>
+                          <textarea required rows={4} value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-sky-500 outline-none resize-none" />
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-bold text-slate-700 mb-1">Warranty Info</label>
+                          <input type="text" value={formData.warrantyInfo} onChange={e => setFormData({...formData, warrantyInfo: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-sky-500 outline-none" />
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                        <div>
-                          <label className="block text-sm font-bold text-slate-700 mb-1">Base Price (₹)</label>
-                          <input required type="number" step="0.01" value={formData.basePrice} onChange={e => setFormData({...formData, basePrice: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-sky-500 outline-none" />
+                      <div className="space-y-4">
+                        <h3 className="text-base font-black text-slate-800 border-b border-slate-100 pb-2">Specifications & Details</h3>
+                        
+                        <div className="space-y-3">
+                          <label className="block text-sm font-bold text-slate-700">Product Specifications</label>
+                          {specsList.map((spec) => (
+                            <div key={spec.id} className="flex items-center gap-3">
+                              <input type="text" placeholder="Feature (e.g. Weight)" value={spec.key} onChange={e => setSpecsList(specsList.map(s => s.id === spec.id ? { ...s, key: e.target.value } : s))} className="flex-1 px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-sky-500 outline-none text-sm" />
+                              <input type="text" placeholder="Value (e.g. 10kg)" value={spec.value} onChange={e => setSpecsList(specsList.map(s => s.id === spec.id ? { ...s, value: e.target.value } : s))} className="flex-1 px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-sky-500 outline-none text-sm" />
+                              <button type="button" onClick={() => setSpecsList(specsList.filter(s => s.id !== spec.id))} className="p-2.5 text-slate-400 hover:text-rose-500 bg-slate-50 hover:bg-rose-50 rounded-lg border border-slate-200 transition-colors"><Trash2 className="w-4 h-4" /></button>
+                            </div>
+                          ))}
+                          <button type="button" onClick={() => setSpecsList([...specsList, { id: Math.random().toString(), key: '', value: '' }])} className="text-sm font-bold text-sky-600 flex items-center gap-1 hover:text-sky-700"><PlusCircle className="w-4 h-4" /> Add Specification</button>
                         </div>
-                        <div>
-                          <label className="block text-sm font-bold text-slate-700 mb-1">Stock</label>
-                          <input required type="number" value={formData.stock} onChange={e => setFormData({...formData, stock: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-sky-500 outline-none" />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-bold text-slate-700 mb-1">MOQ</label>
-                          <input required type="number" min="1" value={formData.moq} onChange={e => setFormData({...formData, moq: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-sky-500 outline-none" />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-bold text-slate-700 mb-1">HSN Code</label>
-                          <input required type="text" value={formData.hsnCode} onChange={e => setFormData({...formData, hsnCode: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-sky-500 outline-none" />
-                        </div>
-                      </div>
 
-                      <div>
-                        <label className="block text-sm font-bold text-slate-700 mb-1">Description</label>
-                        <textarea required rows={4} value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-sky-500 outline-none resize-none" />
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-bold text-slate-700 mb-1">Warranty Info</label>
-                        <input type="text" value={formData.warrantyInfo} onChange={e => setFormData({...formData, warrantyInfo: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-sky-500 outline-none" />
-                      </div>
-
-                      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                        <div>
-                          <label className="block text-sm font-bold text-slate-700 mb-1">Specifications (JSON)</label>
-                          <textarea rows={5} value={formData.specifications} onChange={e => setFormData({...formData, specifications: e.target.value})} className="w-full px-4 py-3 bg-slate-900 text-emerald-400 font-mono text-xs border border-slate-800 rounded-xl focus:ring-2 focus:ring-sky-500 outline-none resize-none" />
+                        <div className="space-y-3 pt-4 border-t border-slate-100">
+                          <label className="block text-sm font-bold text-slate-700">Certifications</label>
+                          {certificationsList.map((cert) => (
+                            <div key={cert.id} className="flex items-center gap-3">
+                              <input type="text" placeholder="Certification Standard (e.g. ISO 9001)" value={cert.value} onChange={e => setCertificationsList(certificationsList.map(c => c.id === cert.id ? { ...c, value: e.target.value } : c))} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-sky-500 outline-none text-sm" />
+                              <button type="button" onClick={() => setCertificationsList(certificationsList.filter(c => c.id !== cert.id))} className="p-2.5 text-slate-400 hover:text-rose-500 bg-slate-50 hover:bg-rose-50 rounded-lg border border-slate-200 transition-colors"><Trash2 className="w-4 h-4" /></button>
+                            </div>
+                          ))}
+                          <button type="button" onClick={() => setCertificationsList([...certificationsList, { id: Math.random().toString(), value: '' }])} className="text-sm font-bold text-sky-600 flex items-center gap-1 hover:text-sky-700"><PlusCircle className="w-4 h-4" /> Add Certification</button>
                         </div>
-                        <div>
-                          <label className="block text-sm font-bold text-slate-700 mb-1">Bulk Pricing (JSON Array)</label>
-                          <textarea rows={5} value={formData.bulkPricing} onChange={e => setFormData({...formData, bulkPricing: e.target.value})} className="w-full px-4 py-3 bg-slate-900 text-amber-400 font-mono text-xs border border-slate-800 rounded-xl focus:ring-2 focus:ring-sky-500 outline-none resize-none" />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-bold text-slate-700 mb-1">Certifications (JSON Array)</label>
-                          <textarea rows={5} value={formData.certifications} onChange={e => setFormData({...formData, certifications: e.target.value})} className="w-full px-4 py-3 bg-slate-900 text-sky-400 font-mono text-xs border border-slate-800 rounded-xl focus:ring-2 focus:ring-sky-500 outline-none resize-none" />
+
+                        <div className="space-y-3 pt-4 border-t border-slate-100">
+                          <label className="block text-sm font-bold text-slate-700">Bulk Pricing Discounts</label>
+                          {bulkPricingList.map((bp) => (
+                            <div key={bp.id} className="flex items-center gap-3">
+                              <input type="number" placeholder="Min Quantity (e.g. 50)" value={bp.qty} onChange={e => setBulkPricingList(bulkPricingList.map(b => b.id === bp.id ? { ...b, qty: e.target.value } : b))} className="flex-1 px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-sky-500 outline-none text-sm" />
+                              <input type="number" step="0.1" placeholder="Discount % (e.g. 10.5)" value={bp.discount} onChange={e => setBulkPricingList(bulkPricingList.map(b => b.id === bp.id ? { ...b, discount: e.target.value } : b))} className="flex-1 px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-sky-500 outline-none text-sm" />
+                              <button type="button" onClick={() => setBulkPricingList(bulkPricingList.filter(b => b.id !== bp.id))} className="p-2.5 text-slate-400 hover:text-rose-500 bg-slate-50 hover:bg-rose-50 rounded-lg border border-slate-200 transition-colors"><Trash2 className="w-4 h-4" /></button>
+                            </div>
+                          ))}
+                          <button type="button" onClick={() => setBulkPricingList([...bulkPricingList, { id: Math.random().toString(), qty: '', discount: '' }])} className="text-sm font-bold text-sky-600 flex items-center gap-1 hover:text-sky-700"><PlusCircle className="w-4 h-4" /> Add Bulk Pricing Tier</button>
                         </div>
                       </div>
 
                       {modalMode === 'CREATE' && (
-                        <div className="pt-4 border-t border-slate-100">
+                        <div className="pt-6 border-t border-slate-100">
                           <label className="block text-sm font-bold text-slate-700 mb-2">Product Images (Max 5)</label>
                           <input multiple type="file" accept="image/*" onChange={handleImageFiles} className="w-full text-sm text-slate-500 file:mr-4 file:py-2.5 file:px-6 file:rounded-full file:border-0 file:text-sm file:font-bold file:bg-sky-100 file:text-sky-700 hover:file:bg-sky-200 transition-colors cursor-pointer" />
                         </div>
@@ -536,28 +606,52 @@ export default function AdminProductsPage() {
                   )}
 
                   {(modalMode === 'CREATE' || modalMode === 'COMPATIBILITY') && (
-                    <div>
-                      <label className="block text-sm font-bold text-slate-700 mb-1 flex items-center gap-2">
-                        <Code className="w-4 h-4" /> Compatibility Matrix (JSON)
-                        {modalMode === 'COMPATIBILITY' && <span className="text-xs font-normal text-slate-500 ml-auto">Must align with Category Search Blueprint</span>}
-                      </label>
-                      <textarea 
-                        required={modalMode === 'COMPATIBILITY'}
-                        rows={12} 
-                        value={compatibilitiesData} 
-                        onChange={e => setCompatibilitiesData(e.target.value)}
-                        className="w-full px-4 py-4 bg-slate-900 text-emerald-400 font-mono text-sm border border-slate-800 rounded-xl focus:ring-2 focus:ring-sky-500 outline-none resize-none shadow-inner"
-                      />
+                    <div className="space-y-6">
+                      <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                        <h3 className="text-base font-black text-slate-800 flex items-center gap-2">
+                          <Settings2 className="w-5 h-5 text-emerald-500" /> Compatibility Matrix
+                        </h3>
+                      </div>
+                      
+                      {!activeCategoryId ? (
+                        <div className="text-center py-6 bg-slate-50 rounded-2xl border border-slate-200 border-dashed">
+                          <p className="text-sm font-medium text-slate-500">Please select a category first to view its compatibility blueprint.</p>
+                        </div>
+                      ) : activeBlueprintFilters.length === 0 ? (
+                        <div className="text-center py-6 bg-slate-50 rounded-2xl border border-slate-200 border-dashed">
+                          <p className="text-sm font-medium text-slate-500">The selected category does not have a search blueprint defined.</p>
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 bg-slate-50 p-6 rounded-2xl border border-slate-200">
+                          {activeBlueprintFilters.map((filter: any, idx: number) => (
+                            <div key={idx} className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
+                                {filter.label}
+                              </label>
+                              <select 
+                                value={compatibilities[filter.label] || ''} 
+                                onChange={(e) => setCompatibilities({ ...compatibilities, [filter.label]: e.target.value })}
+                                className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none text-sm font-medium text-slate-800 cursor-pointer"
+                              >
+                                <option value="">Select Option</option>
+                                {filter.options?.map((opt: string, optIdx: number) => (
+                                  <option key={optIdx} value={opt}>{opt}</option>
+                                ))}
+                              </select>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   )}
                 </form>
               </div>
 
-              <div className="p-6 border-t border-slate-100 bg-slate-50/50 flex gap-3 flex-shrink-0">
-                <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-3 bg-white border border-slate-200 text-slate-700 rounded-xl font-bold hover:bg-slate-50 transition-colors">
+              <div className="p-6 border-t border-slate-100 bg-slate-50/50 flex gap-3 flex-shrink-0 sticky bottom-0 z-20">
+                <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-3 bg-white border border-slate-200 text-slate-700 rounded-xl font-bold hover:bg-slate-50 transition-colors shadow-sm">
                   Cancel
                 </button>
-                <button type="submit" form="productForm" disabled={formLoading} className="flex-1 py-3 bg-sky-500 text-white rounded-xl font-bold hover:bg-sky-600 transition-colors flex items-center justify-center gap-2 disabled:opacity-50">
+                <button type="submit" form="productForm" disabled={formLoading} className="flex-1 py-3 bg-sky-500 text-white rounded-xl font-bold hover:bg-sky-600 transition-colors flex items-center justify-center gap-2 shadow-lg shadow-sky-500/20 disabled:opacity-50">
                   {formLoading ? <RefreshCw className="w-5 h-5 animate-spin" /> : 'Save Changes'}
                 </button>
               </div>

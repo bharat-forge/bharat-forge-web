@@ -55,9 +55,7 @@ export default function Navbar() {
   };
 
   const getDashboardLink = () => {
-    // if (user?.role === 'ADMIN') return '/admin/dashboard';
     if (user?.role === 'ADMIN') return '/admin/categories';
-    // if (user?.role === 'DEALER') return '/dealer/dashboard';
     if (user?.role === 'DEALER') return '/dealer/products';
     return '/profile';
   };
@@ -92,22 +90,27 @@ export default function Navbar() {
             </Link>
             
             <div className="flex items-center gap-4 ml-4 pl-4 border-l border-slate-200">
-              <Link href="/cart" className="text-slate-500 hover:text-sky-500 transition-colors relative">
-                <ShoppingCart className="h-5 w-5" />
-                <AnimatePresence>
-                  {mounted && totalQuantity > 0 && (
-                    <motion.span 
-                      initial={{ scale: 0 }}
-                      animate={{ scale: 1 }}
-                      exit={{ scale: 0 }}
-                      className="absolute -top-2 -right-2 bg-sky-500 text-white text-[10px] font-bold h-4 w-4 rounded-full flex items-center justify-center"
-                    >
-                      {totalQuantity}
-                    </motion.span>
-                  )}
-                </AnimatePresence>
-              </Link>
               
+              {/* CART ICON - ONLY SHOWS IF LOGGED IN */}
+              {mounted && isAuthenticated && (
+                <Link href="/cart" className="text-slate-500 hover:text-sky-500 transition-colors relative">
+                  <ShoppingCart className="h-5 w-5" />
+                  <AnimatePresence>
+                    {totalQuantity > 0 && (
+                      <motion.span 
+                        initial={{ scale: 0 }}
+                        animate={{ scale: 1 }}
+                        exit={{ scale: 0 }}
+                        className="absolute -top-2 -right-2 bg-sky-500 text-white text-[10px] font-bold h-4 w-4 rounded-full flex items-center justify-center"
+                      >
+                        {totalQuantity}
+                      </motion.span>
+                    )}
+                  </AnimatePresence>
+                </Link>
+              )}
+              
+              {/* USER MENU */}
               {mounted ? (
                 isAuthenticated ? (
                   user?.role === 'USER' ? (

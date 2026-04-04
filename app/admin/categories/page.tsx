@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, Plus, Edit2, Trash2, Code, Package, Image as ImageIcon, ChevronLeft, ChevronRight, X, AlertCircle, RefreshCw } from 'lucide-react';
+import { Search, Plus, Edit2, Trash2, Code, Package, Image as ImageIcon, ChevronLeft, ChevronRight, X, AlertCircle, RefreshCw, ArrowUp, ArrowDown, PlusCircle } from 'lucide-react';
 import { 
   getPaginatedCategories, 
   createCategory, 
@@ -24,7 +24,9 @@ export default function AdminCategoriesPage() {
   const [selectedCategory, setSelectedCategory] = useState<any>(null);
   
   const [formData, setFormData] = useState({ name: '', slug: '', description: '', imageUrl: '' });
-  const [blueprintData, setBlueprintData] = useState('');
+  
+  const [blueprintFilters, setBlueprintFilters] = useState<{ id: string; label: string; options: string }[]>([]);
+  
   const [formLoading, setFormLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -63,14 +65,54 @@ export default function AdminCategoriesPage() {
           imageUrl: category.imageUrl || ''
         });
       } else if (mode === 'BLUEPRINT') {
-        setBlueprintData(category.searchBlueprint ? JSON.stringify(category.searchBlueprint, null, 2) : '{\n  "filters": []\n}');
+        const existingFilters = category.searchBlueprint?.filters || [];
+        setBlueprintFilters(existingFilters.map((f: any) => ({
+          id: Math.random().toString(36).substr(2, 9),
+          label: f.label || '',
+          options: Array.isArray(f.options) ? f.options.join(', ') : ''
+        })));
       }
     } else {
       setSelectedCategory(null);
       setFormData({ name: '', slug: '', description: '', imageUrl: '' });
-      setBlueprintData('{\n  "filters": []\n}');
+      setBlueprintFilters([]);
     }
     setIsModalOpen(true);
+  };
+
+  const addBlueprintFilter = () => {
+    setBlueprintFilters([...blueprintFilters, {
+      id: Math.random().toString(36).substr(2, 9),
+      label: '',
+      options: ''
+    }]);
+  };
+
+  const removeBlueprintFilter = (id: string) => {
+    setBlueprintFilters(blueprintFilters.filter(f => f.id !== id));
+  };
+
+  const updateBlueprintFilter = (id: string, field: string, value: string) => {
+    setBlueprintFilters(blueprintFilters.map(f => f.id === id ? { ...f, [field]: value } : f));
+  };
+
+  const moveFilter = (index: number, direction: number) => {
+    const newFilters = [...blueprintFilters];
+    if (index + direction >= 0 && index + direction < newFilters.length) {
+      const temp = newFilters[index];
+      newFilters[index] = newFilters[index + direction];
+      newFilters[index + direction] = temp;
+      setBlueprintFilters(newFilters);
+    }
+  };
+
+  const formatSearchBlueprint = () => {
+    return {
+      filters: blueprintFilters.map(f => ({
+        label: f.label.trim(),
+        options: f.options.split(',').map(o => o.trim()).filter(o => o)
+      })).filter(f => f.label)
+    };
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -80,11 +122,11 @@ export default function AdminCategoriesPage() {
     
     try {
       if (modalMode === 'CREATE') {
-        await createCategory({ ...formData, searchBlueprint: JSON.parse(blueprintData || '{}') });
+        await createCategory({ ...formData, searchBlueprint: formatSearchBlueprint() });
       } else if (modalMode === 'EDIT') {
         await updateCategoryDetails(selectedCategory.id, formData);
       } else if (modalMode === 'BLUEPRINT') {
-        await updateSearchBlueprint(selectedCategory.id, { searchBlueprint: JSON.parse(blueprintData) });
+        await updateSearchBlueprint(selectedCategory.id, { searchBlueprint: formatSearchBlueprint() });
       }
       setIsModalOpen(false);
       fetchCategories(meta.currentPage);
@@ -245,7 +287,7 @@ export default function AdminCategoriesPage() {
                         <button 
                           onClick={() => handleOpenModal('BLUEPRINT', category)}
                           className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
-                          title="Edit Blueprint"
+                          title="Configure Filters"
                         >
                           <Code className="w-4 h-4" />
                         </button>
@@ -290,18 +332,18 @@ export default function AdminCategoriesPage() {
 
       <AnimatePresence>
         {isModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+          <div className="fixed inset-0 z-50 flex items-start justify-center p-4 bg-slate-900/50 backdrop-blur-sm overflow-y-auto">
             <motion.div 
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden"
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="bg-white rounded-3xl shadow-2xl w-full max-w-4xl overflow-hidden my-8"
             >
-              <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+              <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50 sticky top-0 z-10">
                 <h2 className="text-xl font-black text-slate-900">
                   {modalMode === 'CREATE' ? 'Create New Category' : 
                    modalMode === 'EDIT' ? 'Edit Category Details' : 
-                   'Edit Search Blueprint'}
+                   'Configure Search Blueprint'}
                 </h2>
                 <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-600 bg-white p-2 rounded-full shadow-sm">
                   <X className="w-5 h-5" />
@@ -316,9 +358,10 @@ export default function AdminCategoriesPage() {
                   </div>
                 )}
 
-                <form id="categoryForm" onSubmit={handleSubmit} className="space-y-5">
+                <form id="categoryForm" onSubmit={handleSubmit} className="space-y-8">
                   {(modalMode === 'CREATE' || modalMode === 'EDIT') && (
-                    <>
+                    <div className="space-y-5">
+                      <h3 className="text-sm font-bold text-slate-900 border-b border-slate-100 pb-2">Category Details</h3>
                       <div className="grid grid-cols-2 gap-5">
                         <div>
                           <label className="block text-sm font-bold text-slate-700 mb-1">Name</label>
@@ -349,32 +392,81 @@ export default function AdminCategoriesPage() {
                           className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-sky-500 outline-none resize-none"
                         />
                       </div>
-                    </>
+                    </div>
                   )}
 
                   {(modalMode === 'CREATE' || modalMode === 'BLUEPRINT') && (
-                    <div>
-                      <label className="block text-sm font-bold text-slate-700 mb-1 flex justify-between">
-                        Search Blueprint (JSON)
-                        {modalMode === 'CREATE' && <span className="text-xs font-normal text-slate-500">Optional</span>}
-                      </label>
-                      <textarea 
-                        required={modalMode === 'BLUEPRINT'}
-                        rows={8} 
-                        value={blueprintData} 
-                        onChange={e => setBlueprintData(e.target.value)}
-                        className="w-full px-4 py-3 bg-slate-900 text-emerald-400 font-mono text-sm border border-slate-800 rounded-xl focus:ring-2 focus:ring-sky-500 outline-none resize-none"
-                      />
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                        <h3 className="text-sm font-bold text-slate-900">Search Filters Pipeline</h3>
+                        <span className="text-xs font-medium text-slate-500 bg-slate-100 px-2 py-1 rounded-md">Sequential Order</span>
+                      </div>
+                      
+                      <div className="space-y-3">
+                        {blueprintFilters.length === 0 ? (
+                          <div className="text-center py-8 bg-slate-50 rounded-2xl border border-slate-200 border-dashed">
+                            <p className="text-sm font-medium text-slate-500">No search filters defined.</p>
+                          </div>
+                        ) : (
+                          blueprintFilters.map((filter, index) => (
+                            <motion.div 
+                              key={filter.id} 
+                              initial={{ opacity: 0, y: 10 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              className="p-5 border border-slate-200 rounded-2xl bg-white shadow-sm flex gap-5 relative group"
+                            >
+                              <div className="flex flex-col items-center justify-center gap-2 border-r border-slate-100 pr-5">
+                                <button type="button" onClick={() => moveFilter(index, -1)} disabled={index === 0} className="text-slate-300 hover:text-sky-500 disabled:opacity-30 disabled:hover:text-slate-300 transition-colors">
+                                  <ArrowUp className="w-5 h-5" />
+                                </button>
+                                <span className="w-6 h-6 rounded-full bg-slate-100 text-slate-600 text-xs font-black flex items-center justify-center">
+                                  {index + 1}
+                                </span>
+                                <button type="button" onClick={() => moveFilter(index, 1)} disabled={index === blueprintFilters.length - 1} className="text-slate-300 hover:text-sky-500 disabled:opacity-30 disabled:hover:text-slate-300 transition-colors">
+                                  <ArrowDown className="w-5 h-5" />
+                                </button>
+                              </div>
+
+                              <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div>
+                                  <label className="block text-xs font-bold text-slate-700 mb-1">Filter Label</label>
+                                  <input 
+                                    required type="text" value={filter.label} onChange={(e) => updateBlueprintFilter(filter.id, 'label', e.target.value)}
+                                    placeholder="e.g., Vehicle Type"
+                                    className="w-full px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-sky-500 outline-none"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-xs font-bold text-slate-700 mb-1">Options</label>
+                                  <input 
+                                    required type="text" value={filter.options} onChange={(e) => updateBlueprintFilter(filter.id, 'options', e.target.value)}
+                                    placeholder="Comma separated (e.g., Car, SUV)"
+                                    className="w-full px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-sky-500 outline-none"
+                                  />
+                                </div>
+                              </div>
+
+                              <button type="button" onClick={() => removeBlueprintFilter(filter.id)} className="absolute top-4 right-4 p-1.5 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-lg opacity-0 group-hover:opacity-100 transition-all">
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </motion.div>
+                          ))
+                        )}
+                      </div>
+
+                      <button type="button" onClick={addBlueprintFilter} className="w-full py-4 border-2 border-dashed border-sky-200 text-sky-600 rounded-2xl font-bold hover:bg-sky-50 hover:border-sky-300 transition-colors flex items-center justify-center gap-2">
+                        <PlusCircle className="w-5 h-5" /> Add New Filter Layer
+                      </button>
                     </div>
                   )}
                 </form>
               </div>
 
-              <div className="p-6 border-t border-slate-100 bg-slate-50/50 flex gap-3">
-                <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-3 bg-white border border-slate-200 text-slate-700 rounded-xl font-bold hover:bg-slate-50 transition-colors">
+              <div className="p-6 border-t border-slate-100 bg-slate-50/50 flex gap-3 sticky bottom-0 z-10">
+                <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-3 bg-white border border-slate-200 text-slate-700 rounded-xl font-bold hover:bg-slate-50 transition-colors shadow-sm">
                   Cancel
                 </button>
-                <button type="submit" form="categoryForm" disabled={formLoading} className="flex-1 py-3 bg-sky-500 text-white rounded-xl font-bold hover:bg-sky-600 transition-colors flex items-center justify-center gap-2 disabled:opacity-50">
+                <button type="submit" form="categoryForm" disabled={formLoading} className="flex-1 py-3 bg-sky-500 text-white rounded-xl font-bold hover:bg-sky-600 transition-colors flex items-center justify-center gap-2 shadow-lg shadow-sky-500/20 disabled:opacity-50">
                   {formLoading ? <RefreshCw className="w-5 h-5 animate-spin" /> : 'Save Changes'}
                 </button>
               </div>

@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/store/store';
 import { getMyProfile, updateMyProfile } from '@/api/shared/profile';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Mail, Phone, MapPin, Edit2, Check, X, ShieldCheck, Building2, Briefcase, FileText } from 'lucide-react';
 
 export default function DealerProfilePage() {
@@ -16,6 +16,7 @@ export default function DealerProfilePage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
   
   const [formData, setFormData] = useState({
     businessName: '',
@@ -25,7 +26,8 @@ export default function DealerProfilePage() {
     street: '',
     city: '',
     state: '',
-    pincode: ''
+    pincode: '',
+    isTwoFactorEnabled: true
   });
 
   useEffect(() => {
@@ -44,6 +46,7 @@ export default function DealerProfilePage() {
       
       const dealerData = res.data?.dealerProfile || {};
       const meta = res.data?.metadata || {};
+      const settings = res.data?.settings || {};
       
       setFormData({
         businessName: dealerData.businessName || meta.businessName || '',
@@ -53,7 +56,8 @@ export default function DealerProfilePage() {
         street: dealerData.street || meta.street || '',
         city: dealerData.city || meta.city || '',
         state: dealerData.state || meta.state || '',
-        pincode: dealerData.pincode || meta.pincode || ''
+        pincode: dealerData.pincode || meta.pincode || '',
+        isTwoFactorEnabled: settings.isTwoFactorEnabled !== false
       });
     } catch (error) {
       console.error(error);
@@ -66,15 +70,26 @@ export default function DealerProfilePage() {
     setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
   };
 
+  const showToast = (message: string, type: 'success' | 'error' = 'success') => {
+    setToast({ show: true, message, type });
+    setTimeout(() => setToast({ show: false, message: '', type: 'success' }), 3000);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       setIsSaving(true);
-      await updateMyProfile({ metadata: formData });
+      const { isTwoFactorEnabled, ...metadata } = formData;
+      await updateMyProfile({ 
+        metadata, 
+        settings: { isTwoFactorEnabled } 
+      });
       await fetchProfile();
       setIsEditing(false);
+      showToast('Profile updated successfully!');
     } catch (error) {
       console.error(error);
+      showToast('Failed to update profile.', 'error');
     } finally {
       setIsSaving(false);
     }
@@ -92,6 +107,20 @@ export default function DealerProfilePage() {
 
   return (
     <div className="max-w-5xl mx-auto w-full pb-10">
+      <AnimatePresence>
+        {toast.show && (
+          <motion.div
+            initial={{ opacity: 0, y: 50 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 50 }}
+            className={`fixed bottom-6 right-6 px-6 py-3 rounded-xl shadow-2xl text-white font-medium z-50 flex items-center gap-2 ${toast.type === 'success' ? 'bg-emerald-500' : 'bg-rose-500'}`}
+          >
+            {toast.type === 'success' ? <Check className="w-5 h-5" /> : <X className="w-5 h-5" />}
+            {toast.message}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <motion.div 
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -142,7 +171,10 @@ export default function DealerProfilePage() {
           ) : (
             <div className="flex items-center gap-2">
               <button 
-                onClick={() => setIsEditing(false)}
+                onClick={() => {
+                  setIsEditing(false);
+                  fetchProfile();
+                }}
                 className="flex items-center gap-2 text-sm font-bold text-slate-600 bg-slate-100 px-4 py-2 rounded-full hover:bg-slate-200 transition-colors"
               >
                 <X className="w-4 h-4" /> Cancel
@@ -271,6 +303,21 @@ export default function DealerProfilePage() {
                 </div>
               </div>
             </div>
+          </div>
+          
+          <div className="flex items-center justify-between p-4 border border-slate-200 rounded-xl bg-slate-50">
+            <div>
+              <p className="font-bold text-slate-700 text-sm">Two-Factor Authentication</p>
+              <p className="text-xs text-slate-500">Require an OTP when logging in.</p>
+            </div>
+            <button
+              type="button"
+              disabled={!isEditing}
+              onClick={() => setFormData(prev => ({ ...prev, isTwoFactorEnabled: !prev.isTwoFactorEnabled }))}
+              className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors duration-200 ease-in-out ${!isEditing ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'} ${formData.isTwoFactorEnabled ? 'bg-sky-600' : 'bg-slate-300'}`}
+            >
+              <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition duration-200 ease-in-out ${formData.isTwoFactorEnabled ? 'translate-x-6' : 'translate-x-1'}`} />
+            </button>
           </div>
         </form>
       </motion.div>

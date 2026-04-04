@@ -30,8 +30,6 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (isAuthenticated && user) {
-      // if (user.role === 'ADMIN') router.replace('/admin/dashboard');
-      // else if (user.role === 'DEALER') router.replace('/dealer/dashboard');
       if (user.role === 'ADMIN') router.replace('/admin/categories');
       else if (user.role === 'DEALER') router.replace('/dealer/products');
       else router.replace('/shop');
@@ -53,9 +51,17 @@ export default function LoginPage() {
     setMessage('');
 
     try {
-      await login({ email, password });
-      setStep('otp');
-      setCountdown(60);
+      const { data } = await login({ email, password });
+      
+      if (data.token && data.user) {
+        dispatch(setCredentials({ user: data.user, token: data.token }));
+        if (data.user.role === 'ADMIN') router.push('/admin/categories');
+        else if (data.user.role === 'DEALER') router.push('/dealer/products');
+        else router.push('/shop');
+      } else {
+        setStep('otp');
+        setCountdown(60);
+      }
     } catch (err: any) {
       setError(err.response?.data?.message || 'Invalid credentials');
     } finally {
@@ -69,7 +75,6 @@ export default function LoginPage() {
     setError('');
 
     try {
-      // CRITICAL: type: 'LOGIN' is sent to match the Redis Key schema
       const { data } = await verifyOTP({ email, otp, type: 'LOGIN' });
       
       dispatch(setCredentials({ user: data.user, token: data.token }));
@@ -89,7 +94,6 @@ export default function LoginPage() {
     setError('');
     setMessage('');
     try {
-      // CRITICAL: type: 'LOGIN' must be here as well
       await resendOTP({ email, type: 'LOGIN' });
       setMessage('A new OTP has been sent to your email.');
       setCountdown(60);
@@ -102,7 +106,6 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen bg-white flex flex-col justify-center py-12 sm:px-6 lg:px-8 relative overflow-hidden">
-      {/* Background Fading Blue Grid */}
       <div className="absolute inset-0 z-0 h-[60vh] w-full bg-[linear-gradient(to_right,#0ea5e915_1px,transparent_1px),linear-gradient(to_bottom,#0ea5e915_1px,transparent_1px)] bg-[size:2rem_2rem] [mask-image:linear-gradient(to_bottom,white,transparent)]" />
 
       <div className="sm:mx-auto sm:w-full sm:max-w-md relative z-10">

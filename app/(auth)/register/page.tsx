@@ -35,6 +35,10 @@ export default function RegisterPage() {
   const [metadata, setMetadata] = useState({
     firstName: '', lastName: '', mobileNumber: '', dob: '', gender: 'MALE'
   });
+  
+  const [settings, setSettings] = useState({
+    isTwoFactorEnabled: true
+  });
 
   useEffect(() => {
     let timer: NodeJS.Timeout;
@@ -88,11 +92,10 @@ const handleVerifyOTP = async (e: React.FormEvent) => {
     setError('');
 
     try {
-      const { data } = await updateMyProfile(metadata);
+      const { data } = await updateMyProfile({ metadata, settings });
       dispatch(updateUserMetadata(data.metadata));
       
       if (role === 'DEALER') {
-        // router.push('/dealer/dashboard');
         router.push('/dealer/products');
       } else {
         router.push('/shop');
@@ -242,6 +245,21 @@ const handleVerifyOTP = async (e: React.FormEvent) => {
                     </select>
                   </div>
                 </div>
+
+                <div className="flex items-center justify-between p-4 border border-slate-200 rounded-xl bg-slate-50 mt-4">
+                  <div>
+                    <p className="font-bold text-slate-700 text-sm">Two-Factor Authentication</p>
+                    <p className="text-xs text-slate-500">Require an OTP when logging in.</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setSettings(prev => ({ ...prev, isTwoFactorEnabled: !prev.isTwoFactorEnabled }))}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${settings.isTwoFactorEnabled ? 'bg-sky-600' : 'bg-slate-300'}`}
+                  >
+                    <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${settings.isTwoFactorEnabled ? 'translate-x-6' : 'translate-x-1'}`} />
+                  </button>
+                </div>
+
                 <button type="submit" disabled={loading} className="w-full flex justify-center py-3 px-4 rounded-xl text-sm font-semibold text-white bg-sky-600 hover:bg-sky-700 mt-6">
                   {loading ? <Loader2 className="animate-spin h-5 w-5" /> : 'Complete Setup'}
                 </button>
