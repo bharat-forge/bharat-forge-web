@@ -86,7 +86,7 @@ const handleVerifyOTP = async (e: React.FormEvent) => {
     }
   };
 
-  const handleOnboarding = async (e: React.FormEvent) => {
+const handleOnboarding = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true); 
     setError('');
@@ -94,7 +94,7 @@ const handleVerifyOTP = async (e: React.FormEvent) => {
     try {
       const { data } = await updateMyProfile({ metadata, settings });
       dispatch(updateUserMetadata(data.metadata));
-      
+
       if (role === 'DEALER') {
         router.push('/dealer/products');
       } else {
@@ -102,9 +102,9 @@ const handleVerifyOTP = async (e: React.FormEvent) => {
       }
     } catch (err: any) {
       setError('Failed to update profile. Please try again.');
-    } finally {
-      setLoading(false);
+      setLoading(false); 
     }
+
   };
 
   const handleResendOTP = async () => {

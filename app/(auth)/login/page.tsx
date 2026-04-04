@@ -55,18 +55,22 @@ export default function LoginPage() {
       
       if (data.token && data.user) {
         dispatch(setCredentials({ user: data.user, token: data.token }));
+
         if (data.user.role === 'ADMIN') router.push('/admin/categories');
         else if (data.user.role === 'DEALER') router.push('/dealer/products');
         else router.push('/shop');
       } else {
         setStep('otp');
         setCountdown(60);
+      
+        setLoading(false); 
       }
     } catch (err: any) {
       setError(err.response?.data?.message || 'Invalid credentials');
-    } finally {
-      setLoading(false);
+
+      setLoading(false); 
     }
+
   };
 
   const handleVerifyOTP = async (e: React.FormEvent) => {
@@ -79,14 +83,15 @@ export default function LoginPage() {
       
       dispatch(setCredentials({ user: data.user, token: data.token }));
       
+
       if (data.user.role === 'ADMIN') router.push('/admin/dashboard');
       else if (data.user.role === 'DEALER') router.push('/dealer/dashboard');
       else router.push('/shop');
     } catch (err: any) {
       setError(err.response?.data?.message || 'Invalid or expired OTP');
-    } finally {
-      setLoading(false);
+      setLoading(false); 
     }
+
   };
 
   const handleResendOTP = async () => {
