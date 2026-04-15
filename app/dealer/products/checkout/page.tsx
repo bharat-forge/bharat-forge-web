@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState } from '@/store/store';
 import { clearCart } from '@/store/slices/cartSlice';
-import { processCheckout } from '@/api/shared/checkout';
+import { processCheckout, verifyCheckout } from '@/api/shared/checkout';
 import { CreditCard, ArrowRight, ShieldCheck, Truck, Package, ChevronLeft } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -31,8 +31,20 @@ export default function DealerCheckoutPage() {
   const { isAuthenticated, user } = useSelector((state: RootState) => state.auth);
 
   const [isLoading, setIsLoading] = useState(false);
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [formData, setFormData] = useState({ street: '', city: '', state: '', pincode: '', country: 'India' });
   const [error, setError] = useState('');
+
+  const formDataRef = useRef(formData);
+  const agreedToTermsRef = useRef(agreedToTerms);
+
+  useEffect(() => {
+    formDataRef.current = formData;
+  }, [formData]);
+
+  useEffect(() => {
+    agreedToTermsRef.current = agreedToTerms;
+  }, [agreedToTerms]);
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -54,8 +66,17 @@ export default function DealerCheckoutPage() {
   const handleCheckout = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    if (!formData.street || !formData.city || !formData.state || !formData.pincode) {
+
+    const currentFormData = formDataRef.current;
+    const currentAgreedToTerms = agreedToTermsRef.current;
+
+    if (!currentFormData.street || !currentFormData.city || !currentFormData.state || !currentFormData.pincode) {
       setError('Please fill in all address fields.');
+      return;
+    }
+
+    if (!currentAgreedToTerms) {
+      setError('Please agree to the Terms and Conditions before proceeding.');
       return;
     }
 
@@ -68,7 +89,7 @@ export default function DealerCheckoutPage() {
         return;
       }
 
-      const res = await processCheckout({ shippingAddress: formData, paymentMethod: 'razorpay' });
+      const res = await processCheckout({ shippingAddress: currentFormData, paymentMethod: 'razorpay' });
       const { razorpayOrder } = res.data;
 
       if (!razorpayOrder) throw new Error('Invalid response from server');
@@ -82,9 +103,23 @@ export default function DealerCheckoutPage() {
         order_id: razorpayOrder.id,
         prefill: { email: user?.email || '' },
         theme: { color: '#0ea5e9' },
-        handler: async function () {
-          dispatch(clearCart());
-          router.push('/dealer/orders?success=true');
+        handler: async function (response: any) {
+          try {
+            const verifyRes = await verifyCheckout({
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_signature: response.razorpay_signature
+            });
+
+            if (verifyRes.data.success) {
+              dispatch(clearCart());
+              router.push('/dealer/orders?success=true');
+            } else {
+              setError('Payment verification failed. Please contact support.');
+            }
+          } catch (err) {
+            setError('An error occurred during payment verification.');
+          }
         },
       };
 
@@ -190,14 +225,27 @@ export default function DealerCheckoutPage() {
               </div>
             </div>
 
-            <div className="border-t border-slate-100 pt-6 mb-8">
+            <div className="border-t border-slate-100 pt-6 mb-6">
               <div className="flex items-center justify-between">
                 <span className="text-lg font-bold text-slate-900">Total to Pay</span>
                 <span className="text-2xl font-black text-sky-600">₹{total.toLocaleString()}</span>
               </div>
             </div>
 
-            <button type="submit" form="checkout-form" disabled={isLoading} className="w-full flex items-center justify-center gap-2 bg-slate-900 text-white px-8 py-4 rounded-xl font-bold hover:bg-slate-800 disabled:opacity-50 transition-colors shadow-lg shadow-slate-900/20">
+            <div className="flex items-center gap-3 mb-6 bg-slate-50 p-4 rounded-xl border border-slate-200">
+              <input 
+                type="checkbox" 
+                id="dealer-terms" 
+                checked={agreedToTerms} 
+                onChange={(e) => setAgreedToTerms(e.target.checked)} 
+                className="w-5 h-5 text-sky-600 rounded border-slate-300 focus:ring-sky-500 cursor-pointer" 
+              />
+              <label htmlFor="dealer-terms" className="text-sm text-slate-700 cursor-pointer select-none font-medium">
+                I agree to the <Link href="/terms" target="_blank" className="text-sky-600 hover:text-sky-700 font-bold hover:underline">Terms and Conditions</Link>
+              </label>
+            </div>
+
+            <button type="submit" form="checkout-form" disabled={isLoading || !agreedToTerms} className="w-full flex items-center justify-center gap-2 bg-slate-900 text-white px-8 py-4 rounded-xl font-bold hover:bg-slate-800 disabled:opacity-50 transition-colors shadow-lg shadow-slate-900/20">
               {isLoading ? <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div> : <>Complete Payment <ArrowRight className="w-5 h-5" /></>}
             </button>
             <p className="text-center text-xs text-slate-400 mt-4 font-bold flex items-center justify-center gap-1"><ShieldCheck className="w-4 h-4" /> Secure 256-bit SSL encryption</p>

@@ -13,13 +13,15 @@ import {
   Building2,
   LogOut,
   Menu,
-  ChevronLeft
+  ChevronLeft,
+  LayoutDashboard
 } from 'lucide-react';
 import { useDispatch } from 'react-redux';
 import { logout } from '@/store/slices/authSlice';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const menuItems = [
+  { icon: LayoutDashboard, label: 'Dashboard', href: '/dealer/dashboard' },
   { icon: PackageSearch, label: 'Products', href: '/dealer/products' },
   { icon: Package, label: 'Orders', href: '/dealer/orders' },
   { icon: Boxes, label: 'Inventory', href: '/dealer/inventory' },

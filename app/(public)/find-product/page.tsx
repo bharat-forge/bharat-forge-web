@@ -8,8 +8,8 @@ import { ChevronRight, ChevronLeft, Search, Package, Star, MapPin, ArrowRight, S
 import { getSearchBlueprints, getDynamicOptions, findMatchingProducts } from '@/api/public/guidedSearch';
 
 interface SearchFilter {
-  key: string;
-  type: string;
+  key?: string;
+  type?: string;
   label: string;
   options?: string[];
 }
@@ -75,7 +75,7 @@ export default function FindYourProductPage() {
     
     if (category.searchBlueprint && category.searchBlueprint.filters && Array.isArray(category.searchBlueprint.filters)) {
       fields = category.searchBlueprint.filters.map((f: SearchFilter) => ({
-        key: f.key,
+        key: f.key || f.label,
         label: f.label,
         staticOptions: f.options || []
       }));
@@ -84,7 +84,7 @@ export default function FindYourProductPage() {
         if (typeof bp === 'string') {
           return { key: bp, label: bp.charAt(0).toUpperCase() + bp.slice(1), staticOptions: [] };
         }
-        return { key: bp.key, label: bp.label, staticOptions: bp.options || [] };
+        return { key: bp.key || bp.label, label: bp.label, staticOptions: bp.options || [] };
       });
     }
 
@@ -196,10 +196,10 @@ export default function FindYourProductPage() {
                   <button
                     key={category.id}
                     onClick={() => handleCategorySelect(category)}
-                    className="group bg-white p-8 rounded-3xl border border-slate-200 shadow-sm hover:shadow-xl hover:border-sky-200 hover:-translate-y-1 transition-all duration-300 text-left relative overflow-hidden"
+                    className="group bg-white p-8 rounded-3xl border border-slate-200 shadow-sm hover:shadow-xl hover:border-sky-300 hover:-translate-y-1 transition-all duration-300 text-left relative overflow-hidden"
                   >
                     <div className="absolute top-0 right-0 p-6 opacity-5 group-hover:opacity-10 transition-opacity">
-                      <Settings className="w-24 h-24 text-sky-600" />
+                      <Settings className="w-24 h-24 text-sky-700" />
                     </div>
                     <div className="bg-sky-50 w-14 h-14 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300">
                       <Package className="w-7 h-7 text-sky-600" />
@@ -238,8 +238,8 @@ export default function FindYourProductPage() {
                   {blueprintFields.map((field, idx) => (
                     <div key={field.key} className="flex items-center gap-2">
                       <div className={`px-4 py-2 rounded-full text-sm font-medium border ${
-                        idx < currentStep ? 'bg-sky-50 border-sky-100 text-sky-700' :
-                        idx === currentStep ? 'bg-sky-500 border-sky-500 text-white shadow-md' :
+                        idx < currentStep ? 'bg-sky-50 border-sky-200 text-sky-700' :
+                        idx === currentStep ? 'bg-sky-600 border-sky-600 text-white shadow-md' :
                         'bg-slate-50 border-slate-100 text-slate-400'
                       }`}>
                         {idx < currentStep ? selections[field.key] : field.label}
@@ -320,7 +320,7 @@ export default function FindYourProductPage() {
 
               {isSearching ? (
                 <div className="flex flex-col items-center justify-center py-24">
-                  <div className="w-16 h-16 border-4 border-slate-200 border-t-sky-500 rounded-full animate-spin mb-6"></div>
+                  <div className="w-16 h-16 border-4 border-slate-200 border-t-sky-600 rounded-full animate-spin mb-6"></div>
                   <p className="text-lg font-medium text-slate-600 animate-pulse">Scanning inventory...</p>
                 </div>
               ) : results && results.length > 0 ? (
@@ -329,7 +329,7 @@ export default function FindYourProductPage() {
                     <Link 
                       href={`/shop/${product.id}`} 
                       key={product.id}
-                      className="group bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-sm hover:shadow-xl hover:border-sky-200 transition-all duration-300 flex flex-col"
+                      className="group bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-sm hover:shadow-xl hover:border-sky-300 transition-all duration-300 flex flex-col"
                     >
                       <div className="relative aspect-square bg-slate-100 p-6 overflow-hidden">
                         {product.images?.[0] ? (
@@ -350,7 +350,7 @@ export default function FindYourProductPage() {
                       </div>
                       
                       <div className="p-5 flex-1 flex flex-col">
-                        <h3 className="font-bold text-slate-900 text-lg leading-tight mb-2 group-hover:text-sky-600 transition-colors">
+                        <h3 className="font-bold text-slate-900 text-lg leading-tight mb-2 group-hover:text-sky-700 transition-colors">
                           {product.name}
                         </h3>
                         
@@ -369,10 +369,10 @@ export default function FindYourProductPage() {
                           
                           <div className="pt-4 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500 font-medium">
                             <div className="flex items-center gap-1.5">
-                              <MapPin className="w-3.5 h-3.5 text-sky-500" />
+                              <MapPin className="w-3.5 h-3.5 text-sky-600" />
                               {product.dealers?.length || 0} Dealers
                             </div>
-                            <span className="text-sky-600 group-hover:translate-x-1 transition-transform flex items-center gap-1">
+                            <span className="text-sky-700 group-hover:translate-x-1 transition-transform flex items-center gap-1">
                               View Details <ChevronRight className="w-3.5 h-3.5" />
                             </span>
                           </div>

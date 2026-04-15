@@ -25,7 +25,7 @@ import { logout } from '@/store/slices/authSlice';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const menuItems = [
-  // { icon: LayoutDashboard, label: 'Dashboard', href: '/admin/dashboard' },
+  { icon: LayoutDashboard, label: 'Dashboard', href: '/admin/dashboard' },
   { icon: Tags, label: 'Categories', href: '/admin/categories' },
   { icon: Package, label: 'Products', href: '/admin/products' },
   { icon: FileText, label: 'Article Categories', href: '/admin/article-categories' },
@@ -37,6 +37,8 @@ const menuItems = [
   { icon: LifeBuoy, label: 'Support Tickets', href: '/admin/support' },
   { icon: MessageSquare, label: 'Chats', href: '/admin/chat' },
   { icon: UserCircle, label: 'Profile', href: '/admin/profile' },
+  { icon: FileText, label: 'Terms', href: '/admin/terms' },
+  { icon: FileText, label: 'Privacy', href: '/admin/privacy' },
 ];
 
 export default function AdminSidebar() {

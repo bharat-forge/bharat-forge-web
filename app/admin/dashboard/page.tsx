@@ -1,131 +1,254 @@
 "use client";
 
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { IndianRupee, Users, PackageOpen, TrendingUp, AlertTriangle } from 'lucide-react';
+import { 
+  IndianRupee, ShoppingCart, Users, Package, 
+  LifeBuoy, Activity, PieChart as PieChartIcon, TrendingUp, BarChart3, Calculator
+} from 'lucide-react';
+import { getAdminDashboardStats } from '@/api/admin/dashboard';
+import { 
+  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  PieChart, Pie, Cell, Legend, BarChart, Bar, LineChart, Line
+} from 'recharts';
 
 export default function AdminDashboardPage() {
-  const stats = [
-    { label: 'Total Revenue', value: '₹42,50,000', icon: IndianRupee, color: 'text-green-600', bg: 'bg-green-100' },
-    { label: 'Active Dealers', value: '124', icon: Users, color: 'text-sky-600', bg: 'bg-sky-100' },
-    { label: 'Pending Orders', value: '18', icon: PackageOpen, color: 'text-orange-600', bg: 'bg-orange-100' },
-    { label: 'Low Stock Items', value: '5', icon: AlertTriangle, color: 'text-red-600', bg: 'bg-red-100' },
-  ];
+  const [stats, setStats] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    fetchStats();
+  }, []);
+
+  const fetchStats = async () => {
+    try {
+      const res = await getAdminDashboardStats();
+      setStats(res.data);
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-[80vh] flex items-center justify-center">
+        <div className="w-12 h-12 border-4 border-slate-200 border-t-sky-500 rounded-full animate-spin"></div>
+      </div>
+    );
+  }
+
+  if (!stats) return null;
+
+  const COLORS = ['#0ea5e9', '#10b981', '#f59e0b', '#f43f5e', '#8b5cf6', '#ec4899'];
+
+  const parsedPieData = stats.charts.orderStatusDistribution.map((item: any) => ({
+    ...item,
+    count: Number(item.count)
+  }));
+
+  const CustomTooltip = ({ active, payload, label, prefix = '' }: any) => {
+    if (active && payload && payload.length) {
+      return (
+        <div className="bg-slate-900 text-white p-3 rounded-xl shadow-xl border border-slate-800">
+          <p className="text-slate-400 text-xs font-bold mb-1">{label}</p>
+          {payload.map((entry: any, index: number) => (
+            <p key={index} className="text-sm font-black" style={{ color: entry.color }}>
+              {entry.name}: {prefix}{entry.value.toLocaleString()}
+            </p>
+          ))}
+        </div>
+      );
+    }
+    return null;
+  };
 
   return (
-    <div className="max-w-7xl mx-auto">
-      <div className="flex justify-between items-center mb-8">
+    <div className="p-6 lg:p-10 w-full space-y-6">
+      
+      <div className="flex items-center justify-between bg-white p-6 rounded-3xl border border-slate-200 shadow-sm w-full">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Dashboard Overview</h1>
-          <p className="text-gray-500 mt-1">Welcome back to the administrative control panel.</p>
+          <h1 className="text-3xl font-black text-slate-900 tracking-tight">Platform Analytics</h1>
+          <p className="text-slate-500 font-medium mt-1">Real-time business metrics and graphical insights</p>
         </div>
-        <button className="bg-white border border-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors flex items-center">
-          <TrendingUp className="h-4 w-4 mr-2 text-gray-400" />
-          Generate Report
-        </button>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        {stats.map((stat, idx) => (
-          <motion.div 
-            key={idx}
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: idx * 0.1 }}
-            className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm"
-          >
-            <div className="flex justify-between items-start mb-4">
-              <div className={`h-12 w-12 rounded-xl flex items-center justify-center ${stat.bg}`}>
-                <stat.icon className={`h-6 w-6 ${stat.color}`} />
-              </div>
-            </div>
-            <h3 className="text-gray-500 text-sm font-medium">{stat.label}</h3>
-            <p className="text-3xl font-bold text-gray-900 mt-1">{stat.value}</p>
-          </motion.div>
-        ))}
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-2 bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-lg font-bold text-gray-900">Recent Orders</h2>
-            <button className="text-sky-600 text-sm font-medium hover:text-sky-700">View All</button>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="border-b border-gray-100 text-sm text-gray-500">
-                  <th className="pb-3 font-medium">Order ID</th>
-                  <th className="pb-3 font-medium">Dealer</th>
-                  <th className="pb-3 font-medium">Amount</th>
-                  <th className="pb-3 font-medium">Status</th>
-                  <th className="pb-3 font-medium">Date</th>
-                </tr>
-              </thead>
-              <tbody className="text-sm">
-                <tr className="border-b border-gray-50 last:border-0">
-                  <td className="py-4 font-mono text-gray-900">#ORD-0921</td>
-                  <td className="py-4 text-gray-600">Apex Auto Parts</td>
-                  <td className="py-4 font-medium text-gray-900">₹1,24,000</td>
-                  <td className="py-4">
-                    <span className="bg-orange-50 text-orange-600 px-2 py-1 rounded text-xs font-semibold">Processing</span>
-                  </td>
-                  <td className="py-4 text-gray-500">Today, 10:42 AM</td>
-                </tr>
-                <tr className="border-b border-gray-50 last:border-0">
-                  <td className="py-4 font-mono text-gray-900">#ORD-0920</td>
-                  <td className="py-4 text-gray-600">Kolkata Tyre Hub</td>
-                  <td className="py-4 font-medium text-gray-900">₹85,500</td>
-                  <td className="py-4">
-                    <span className="bg-sky-50 text-sky-600 px-2 py-1 rounded text-xs font-semibold">Shipped</span>
-                  </td>
-                  <td className="py-4 text-gray-500">Yesterday, 04:15 PM</td>
-                </tr>
-                <tr className="border-b border-gray-50 last:border-0">
-                  <td className="py-4 font-mono text-gray-900">#ORD-0919</td>
-                  <td className="py-4 text-gray-600">Eastern Power Solutions</td>
-                  <td className="py-4 font-medium text-gray-900">₹3,10,000</td>
-                  <td className="py-4">
-                    <span className="bg-green-50 text-green-600 px-2 py-1 rounded text-xs font-semibold">Delivered</span>
-                  </td>
-                  <td className="py-4 text-gray-500">28 Mar 2026</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-lg font-bold text-gray-900">Pending Approvals</h2>
-          </div>
-          <div className="space-y-4">
-            <div className="border border-gray-100 rounded-xl p-4">
-              <div className="flex justify-between items-start mb-2">
-                <div>
-                  <h4 className="font-bold text-gray-900 text-sm">Northern Tyres Ltd.</h4>
-                  <p className="text-xs text-gray-500">Delhi, India</p>
-                </div>
-                <span className="text-xs text-orange-600 bg-orange-50 px-2 py-1 rounded font-medium">Pending</span>
-              </div>
-              <div className="flex gap-2 mt-4">
-                <button className="flex-1 bg-sky-50 hover:bg-sky-100 text-sky-700 py-1.5 rounded-lg text-xs font-bold transition-colors">Review</button>
-              </div>
-            </div>
-            <div className="border border-gray-100 rounded-xl p-4">
-              <div className="flex justify-between items-start mb-2">
-                <div>
-                  <h4 className="font-bold text-gray-900 text-sm">Western Auto Care</h4>
-                  <p className="text-xs text-gray-500">Mumbai, Maharashtra</p>
-                </div>
-                <span className="text-xs text-orange-600 bg-orange-50 px-2 py-1 rounded font-medium">Pending</span>
-              </div>
-              <div className="flex gap-2 mt-4">
-                <button className="flex-1 bg-sky-50 hover:bg-sky-100 text-sky-700 py-1.5 rounded-lg text-xs font-bold transition-colors">Review</button>
-              </div>
-            </div>
-          </div>
+        <div className="p-4 bg-sky-50 text-sky-600 rounded-2xl hidden sm:block border border-sky-100">
+          <Activity className="w-8 h-8" />
         </div>
       </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-6 gap-6 w-full">
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm relative overflow-hidden group">
+          <div className="absolute -right-6 -top-6 w-24 h-24 bg-emerald-50 rounded-full group-hover:scale-150 transition-transform duration-500 z-0"></div>
+          <div className="relative z-10">
+            <div className="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-2xl flex items-center justify-center mb-4">
+              <IndianRupee className="w-6 h-6" />
+            </div>
+            <p className="text-slate-500 font-bold text-xs uppercase tracking-wider mb-1">Total Revenue</p>
+            <h3 className="text-2xl font-black text-slate-900">₹{(stats.metrics.totalRevenue / 1000000).toFixed(2)}M</h3>
+          </div>
+        </motion.div>
+
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm relative overflow-hidden group">
+          <div className="absolute -right-6 -top-6 w-24 h-24 bg-sky-50 rounded-full group-hover:scale-150 transition-transform duration-500 z-0"></div>
+          <div className="relative z-10">
+            <div className="w-12 h-12 bg-sky-100 text-sky-600 rounded-2xl flex items-center justify-center mb-4">
+              <ShoppingCart className="w-6 h-6" />
+            </div>
+            <p className="text-slate-500 font-bold text-xs uppercase tracking-wider mb-1">Total Orders</p>
+            <h3 className="text-2xl font-black text-slate-900">{stats.metrics.totalOrders.toLocaleString()}</h3>
+          </div>
+        </motion.div>
+
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm relative overflow-hidden group">
+          <div className="absolute -right-6 -top-6 w-24 h-24 bg-indigo-50 rounded-full group-hover:scale-150 transition-transform duration-500 z-0"></div>
+          <div className="relative z-10">
+            <div className="w-12 h-12 bg-indigo-100 text-indigo-600 rounded-2xl flex items-center justify-center mb-4">
+              <Calculator className="w-6 h-6" />
+            </div>
+            <p className="text-slate-500 font-bold text-xs uppercase tracking-wider mb-1">Avg Order Value</p>
+            <h3 className="text-2xl font-black text-slate-900">₹{Math.round(stats.metrics.avgOrderValue).toLocaleString()}</h3>
+          </div>
+        </motion.div>
+
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }} className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm relative overflow-hidden group">
+          <div className="absolute -right-6 -top-6 w-24 h-24 bg-amber-50 rounded-full group-hover:scale-150 transition-transform duration-500 z-0"></div>
+          <div className="relative z-10">
+            <div className="w-12 h-12 bg-amber-100 text-amber-600 rounded-2xl flex items-center justify-center mb-4">
+              <Users className="w-6 h-6" />
+            </div>
+            <p className="text-slate-500 font-bold text-xs uppercase tracking-wider mb-1">Active Dealers</p>
+            <h3 className="text-2xl font-black text-slate-900">{stats.metrics.activeDealers}</h3>
+          </div>
+        </motion.div>
+
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }} className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm relative overflow-hidden group">
+          <div className="absolute -right-6 -top-6 w-24 h-24 bg-purple-50 rounded-full group-hover:scale-150 transition-transform duration-500 z-0"></div>
+          <div className="relative z-10">
+            <div className="w-12 h-12 bg-purple-100 text-purple-600 rounded-2xl flex items-center justify-center mb-4">
+              <Package className="w-6 h-6" />
+            </div>
+            <p className="text-slate-500 font-bold text-xs uppercase tracking-wider mb-1">Catalog Items</p>
+            <h3 className="text-2xl font-black text-slate-900">{stats.metrics.totalProducts}</h3>
+          </div>
+        </motion.div>
+
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.6 }} className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm relative overflow-hidden group">
+          <div className="absolute -right-6 -top-6 w-24 h-24 bg-rose-50 rounded-full group-hover:scale-150 transition-transform duration-500 z-0"></div>
+          <div className="relative z-10">
+            <div className="w-12 h-12 bg-rose-100 text-rose-600 rounded-2xl flex items-center justify-center mb-4">
+              <LifeBuoy className="w-6 h-6" />
+            </div>
+            <p className="text-slate-500 font-bold text-xs uppercase tracking-wider mb-1">Open Tickets</p>
+            <h3 className="text-2xl font-black text-slate-900">{stats.metrics.openTickets}</h3>
+          </div>
+        </motion.div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 w-full">
+        <div className="lg:col-span-8 bg-white p-8 rounded-3xl border border-slate-200 shadow-sm w-full">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
+              <TrendingUp className="w-5 h-5 text-sky-500" /> Revenue Trend (6 Months)
+            </h2>
+          </div>
+          <div className="w-full h-[350px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={stats.charts.revenueTrend} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#0ea5e9" stopOpacity={0.3}/>
+                    <stop offset="95%" stopColor="#0ea5e9" stopOpacity={0}/>
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12, fontWeight: 600}} dy={10} />
+                <YAxis axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12, fontWeight: 600}} tickFormatter={(value) => `₹${value >= 1000 ? (value/1000).toFixed(0) + 'k' : value}`} />
+                <Tooltip content={<CustomTooltip prefix="₹" />} />
+                <Area type="monotone" dataKey="total" name="Revenue" stroke="#0ea5e9" strokeWidth={4} fillOpacity={1} fill="url(#colorRevenue)" />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        <div className="lg:col-span-4 bg-white p-8 rounded-3xl border border-slate-200 shadow-sm w-full">
+          <h2 className="text-xl font-bold text-slate-900 mb-6 flex items-center gap-2">
+            <PieChartIcon className="w-5 h-5 text-sky-500" /> Orders by Status
+          </h2>
+          <div className="w-full h-[350px] flex items-center justify-center relative">
+            {parsedPieData.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={parsedPieData}
+                    cx="50%"
+                    cy="45%"
+                    innerRadius={80}
+                    outerRadius={110}
+                    paddingAngle={5}
+                    dataKey="count"
+                    nameKey="status"
+                    stroke="none"
+                  >
+                    {parsedPieData.map((entry: any, index: number) => (
+                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip content={<CustomTooltip />} />
+                  <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{ fontSize: '12px', fontWeight: 'bold', color: '#475569' }}/>
+                </PieChart>
+              </ResponsiveContainer>
+            ) : (
+              <p className="text-slate-400 font-bold">No order data available</p>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 w-full">
+        <div className="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm w-full">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
+              <BarChart3 className="w-5 h-5 text-indigo-500" /> Revenue by Category
+            </h2>
+          </div>
+          <div className="w-full h-[350px]">
+            {stats.charts.revenueByCategory.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={stats.charts.revenueByCategory} layout="vertical" margin={{ top: 0, right: 30, left: 40, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e2e8f0" />
+                  <XAxis type="number" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12, fontWeight: 600}} tickFormatter={(value) => `₹${value >= 1000 ? (value/1000).toFixed(0) + 'k' : value}`} />
+                  <YAxis type="category" dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#475569', fontSize: 12, fontWeight: 700}} width={120} />
+                  <Tooltip content={<CustomTooltip prefix="₹" />} />
+                  <Bar dataKey="total" name="Revenue" fill="#8b5cf6" radius={[0, 8, 8, 0]} barSize={32} />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="w-full h-full flex items-center justify-center text-slate-400 font-bold">No Category Data</div>
+            )}
+          </div>
+        </div>
+
+        <div className="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm w-full">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
+              <Activity className="w-5 h-5 text-emerald-500" /> New Dealer Onboarding
+            </h2>
+          </div>
+          <div className="w-full h-[350px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={stats.charts.dealerGrowthTrend} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12, fontWeight: 600}} dy={10} />
+                <YAxis axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12, fontWeight: 600}} />
+                <Tooltip content={<CustomTooltip />} />
+                <Line type="monotone" dataKey="newDealers" name="New Dealers" stroke="#10b981" strokeWidth={4} dot={{ r: 6, fill: '#10b981', strokeWidth: 0 }} activeDot={{ r: 8, strokeWidth: 0 }} />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      </div>
+      
     </div>
   );
 }

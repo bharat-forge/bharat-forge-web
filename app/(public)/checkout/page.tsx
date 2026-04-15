@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState } from '@/store/store';
 import { clearCart } from '@/store/slices/cartSlice';
-import { processCheckout } from '@/api/shared/checkout';
+import { processCheckout, verifyCheckout } from '@/api/shared/checkout';
 import { MapPin, CreditCard, ArrowRight, ShieldCheck, Truck, Package, ChevronLeft } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -31,6 +31,7 @@ export default function CheckoutPage() {
   const { isAuthenticated, user } = useSelector((state: RootState) => state.auth);
 
   const [isLoading, setIsLoading] = useState(false);
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [formData, setFormData] = useState({
     street: '',
     city: '',
@@ -39,6 +40,17 @@ export default function CheckoutPage() {
     country: 'India'
   });
   const [error, setError] = useState('');
+
+  const formDataRef = useRef(formData);
+  const agreedToTermsRef = useRef(agreedToTerms);
+
+  useEffect(() => {
+    formDataRef.current = formData;
+  }, [formData]);
+
+  useEffect(() => {
+    agreedToTermsRef.current = agreedToTerms;
+  }, [agreedToTerms]);
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -61,8 +73,16 @@ export default function CheckoutPage() {
     e.preventDefault();
     setError('');
 
-    if (!formData.street || !formData.city || !formData.state || !formData.pincode) {
+    const currentFormData = formDataRef.current;
+    const currentAgreedToTerms = agreedToTermsRef.current;
+
+    if (!currentFormData.street || !currentFormData.city || !currentFormData.state || !currentFormData.pincode) {
       setError('Please fill in all address fields.');
+      return;
+    }
+
+    if (!currentAgreedToTerms) {
+      setError('Please agree to the Terms and Conditions before proceeding.');
       return;
     }
 
@@ -77,7 +97,7 @@ export default function CheckoutPage() {
       }
 
       const res = await processCheckout({
-        shippingAddress: formData,
+        shippingAddress: currentFormData,
         paymentMethod: 'razorpay'
       });
 
@@ -101,8 +121,22 @@ export default function CheckoutPage() {
           color: '#0ea5e9'
         },
         handler: async function (response: any) {
-          dispatch(clearCart());
-          router.push('/orders?success=true');
+          try {
+            const verifyRes = await verifyCheckout({
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_signature: response.razorpay_signature
+            });
+
+            if (verifyRes.data.success) {
+              dispatch(clearCart());
+              router.push('/orders?success=true');
+            } else {
+              setError('Payment verification failed. Please contact support.');
+            }
+          } catch (err) {
+            setError('An error occurred during payment verification.');
+          }
         },
       };
 
@@ -114,7 +148,6 @@ export default function CheckoutPage() {
 
       rzp.open();
     } catch (err: any) {
-      console.error(err);
       setError(err.response?.data?.message || 'Something went wrong during checkout.');
     } finally {
       setIsLoading(false);
@@ -273,17 +306,30 @@ export default function CheckoutPage() {
                 </div>
               </div>
 
-              <div className="border-t border-slate-100 pt-6 mb-8">
+              <div className="border-t border-slate-100 pt-6 mb-6">
                 <div className="flex items-center justify-between">
                   <span className="text-lg font-bold text-slate-900">Total to Pay</span>
                   <span className="text-2xl font-black text-sky-600">₹{total.toLocaleString()}</span>
                 </div>
               </div>
 
+              <div className="flex items-center gap-3 mb-6 bg-slate-50 p-4 rounded-xl border border-slate-200">
+                <input 
+                  type="checkbox" 
+                  id="terms" 
+                  checked={agreedToTerms} 
+                  onChange={(e) => setAgreedToTerms(e.target.checked)} 
+                  className="w-5 h-5 text-sky-600 rounded border-slate-300 focus:ring-sky-500 cursor-pointer" 
+                />
+                <label htmlFor="terms" className="text-sm text-slate-700 cursor-pointer select-none font-medium">
+                  I agree to the <Link href="/terms" target="_blank" className="text-sky-600 hover:text-sky-700 font-bold hover:underline">Terms and Conditions</Link>
+                </label>
+              </div>
+
               <button 
                 type="submit"
                 form="checkout-form"
-                disabled={isLoading}
+                disabled={isLoading || !agreedToTerms}
                 className="w-full flex items-center justify-center gap-2 bg-slate-900 text-white px-8 py-4 rounded-full font-bold hover:bg-slate-800 transition-colors disabled:bg-slate-300 disabled:cursor-not-allowed"
               >
                 {isLoading ? (

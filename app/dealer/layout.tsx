@@ -31,7 +31,6 @@ export default function DealerLayout({ children }: { children: React.ReactNode }
         if (!isApproved && pathname !== '/dealer/verification') {
           router.replace('/dealer/verification');
         } else if (isApproved && pathname === '/dealer/verification') {
-          // router.replace('/dealer/dashboard');
           router.replace('/dealer/products');
         }
       } catch (error) {
@@ -46,7 +45,7 @@ export default function DealerLayout({ children }: { children: React.ReactNode }
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
         <Loader2 className="h-8 w-8 animate-spin text-sky-500" />
       </div>
     );
@@ -55,10 +54,11 @@ export default function DealerLayout({ children }: { children: React.ReactNode }
   if (!isAuthenticated || user?.role !== 'DEALER') return null;
 
   return (
-    <div className="flex min-h-screen bg-gray-50">
+    <div className="flex min-h-screen bg-slate-50">
       {status === 'APPROVED' || status === 'SUSPENDED_PURCHASES' ? <DealerSidebar /> : null}
-      <main className="flex-1 flex flex-col overflow-hidden">
-        <div className="flex-1 overflow-y-auto p-8 max-w-7xl mx-auto w-full">
+      <main className="flex-1 flex flex-col overflow-hidden min-w-0">
+        {/* FIXED: Removed max-w-7xl and mx-auto so the pages inside can stretch freely */}
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 w-full">
           {children}
         </div>
       </main>

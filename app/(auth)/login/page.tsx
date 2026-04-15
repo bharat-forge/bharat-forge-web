@@ -114,9 +114,10 @@ export default function LoginPage() {
       <div className="absolute inset-0 z-0 h-[60vh] w-full bg-[linear-gradient(to_right,#0ea5e915_1px,transparent_1px),linear-gradient(to_bottom,#0ea5e915_1px,transparent_1px)] bg-[size:2rem_2rem] [mask-image:linear-gradient(to_bottom,white,transparent)]" />
 
       <div className="sm:mx-auto sm:w-full sm:max-w-md relative z-10">
-        <div className="flex justify-center">
-          <Image src="/logo.svg" alt="Bharat Forge" width={64} height={64} className="h-16 w-auto" />
-        </div>
+        <Link href="/" className="flex justify-center">
+          <Image src="/logo.svg" alt="Bharat Forge" width={64} height={64} className="h-36 w-auto" />
+        </Link>
+
         <h2 className="mt-6 text-center text-3xl font-extrabold text-slate-900 tracking-tight">Welcome back</h2>
         <p className="mt-2 text-center text-sm text-slate-500">Sign in to manage your account</p>
       </div>
