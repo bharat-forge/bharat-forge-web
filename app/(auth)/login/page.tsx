@@ -30,8 +30,8 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (isAuthenticated && user) {
-      if (user.role === 'ADMIN') router.replace('/admin/categories');
-      else if (user.role === 'DEALER') router.replace('/dealer/products');
+      if (user.role === 'ADMIN') router.replace('/admin/dashboard');
+      else if (user.role === 'DEALER') router.replace('/dealer/dashboard');
       else router.replace('/shop');
     }
   }, [isAuthenticated, user, router]);
@@ -56,8 +56,8 @@ export default function LoginPage() {
       if (data.token && data.user) {
         dispatch(setCredentials({ user: data.user, token: data.token }));
 
-        if (data.user.role === 'ADMIN') router.push('/admin/categories');
-        else if (data.user.role === 'DEALER') router.push('/dealer/products');
+        if (data.user.role === 'ADMIN') router.push('/admin/dashboard');
+        else if (data.user.role === 'DEALER') router.push('/dealer/dashboard');
         else router.push('/shop');
       } else {
         setStep('otp');
