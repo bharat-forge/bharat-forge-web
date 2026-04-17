@@ -65,7 +65,8 @@ export default function Footer() {
       <div className="mx-auto w-full max-w-7xl px-4 py-12 lg:py-16 relative z-10">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-12 lg:gap-8">
 
-          <div className="lg:col-span-4">
+          {/* Logo & Description */}
+          <div className="lg:col-span-3">
             <Link href="/" className="flex items-center mb-6">
               <span className="text-3xl font-black whitespace-nowrap text-white tracking-tighter">
                 Bharat<span className="text-sky-500">Forge</span>
@@ -91,27 +92,41 @@ export default function Footer() {
             </div>
           </div>
 
+          {/* Platform Links */}
           <div className="lg:col-span-2">
             <h2 className="mb-6 text-sm font-black text-white uppercase tracking-widest">Platform</h2>
             <ul className="text-slate-300 font-medium space-y-4">
               <li><Link href="/shop" className="hover:text-sky-500 transition-colors">Product Catalog</Link></li>
-              <li><Link href="/dealer-locator" className="hover:text-sky-500 transition-colors">Find a Dealer</Link></li>
-              <li><Link href="/apply-dealer" className="hover:text-sky-500 transition-colors">Become a Dealer</Link></li>
+              <li><Link href="/find-product" className="hover:text-sky-500 transition-colors">Find a Product</Link></li>
+              <li><Link href="/dealer-locator" className="hover:text-sky-500 transition-colors">Dealer Locator</Link></li>
               <li><Link href="/orders" className="hover:text-sky-500 transition-colors">Track Orders</Link></li>
             </ul>
           </div>
 
+          {/* Company Links */}
           <div className="lg:col-span-2">
             <h2 className="mb-6 text-sm font-black text-white uppercase tracking-widest">Company</h2>
             <ul className="text-slate-300 font-medium space-y-4">
               <li><Link href="/about" className="hover:text-sky-500 transition-colors">About Us</Link></li>
+              <li><Link href="/blogs" className="hover:text-sky-500 transition-colors">Industry Blogs</Link></li>
+              <li><Link href="/apply-dealer" className="hover:text-sky-500 transition-colors">Become a Dealer</Link></li>
               <li><Link href="/compliance" className="hover:text-sky-500 transition-colors">Certifications</Link></li>
-              <li><Link href="/terms" className="hover:text-sky-500 transition-colors">Terms & Conditions</Link></li>
+            </ul>
+          </div>
+
+          {/* Support Links */}
+          <div className="lg:col-span-2">
+            <h2 className="mb-6 text-sm font-black text-white uppercase tracking-widest">Support</h2>
+            <ul className="text-slate-300 font-medium space-y-4">
+              <li><Link href="/support" className="hover:text-sky-500 transition-colors">Support Center</Link></li>
+              <li><Link href="/faq" className="hover:text-sky-500 transition-colors">Knowledge Base</Link></li>
+              <li><Link href="/contact" className="hover:text-sky-500 transition-colors">Contact Us</Link></li>
               <li><Link href="/privacy" className="hover:text-sky-500 transition-colors">Privacy Policy</Link></li>
             </ul>
           </div>
 
-          <div className="lg:col-span-4">
+          {/* Contact Details */}
+          <div className="lg:col-span-3">
             <h2 className="mb-6 text-sm font-black text-white uppercase tracking-widest">Reach Out</h2>
             <ul className="text-slate-300 font-medium space-y-5">
               <li className="flex items-start gap-3 text-sm group">
