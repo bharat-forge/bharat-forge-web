@@ -75,15 +75,15 @@ export default function SplashScreen() {
               </motion.div>
             </div>
 
-            {/* Typography Reveal */}
-            <div className="overflow-hidden pb-2">
+            {/* Typography Reveal - REMOVED overflow-hidden and adjusted animation */}
+            <div className="relative pb-2">
               <motion.div
-                initial={{ y: "100%" }}
-                animate={{ y: 0 }}
-                transition={{ delay: 0.4, duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+                initial={{ y: 30, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={{ delay: 0.4, duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
                 className="text-4xl md:text-5xl font-black whitespace-nowrap text-white tracking-tighter"
               >
-                Bharat<span className="text-sky-500 drop-shadow-[0_0_15px_rgba(14,165,233,0.8)]">Forge</span>
+                Bharat<span className="text-sky-500 drop-shadow-[0_0_20px_rgba(14,165,233,0.9)]">Forge</span>
               </motion.div>
             </div>
 
