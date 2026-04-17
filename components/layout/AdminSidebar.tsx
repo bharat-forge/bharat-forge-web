@@ -39,6 +39,8 @@ const menuItems = [
   { icon: UserCircle, label: 'Profile', href: '/admin/profile' },
   { icon: FileText, label: 'Terms', href: '/admin/terms' },
   { icon: FileText, label: 'Privacy', href: '/admin/privacy' },
+  { icon: MessageSquare, label: 'Contact Requests', href: '/admin/contact' },
+  { icon: MessageSquare, label: 'FAQ', href: '/admin/faq' },
 ];
 
 export default function AdminSidebar() {

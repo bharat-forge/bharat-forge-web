@@ -4,9 +4,9 @@ import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/store/store';
-import { getArticleBySlug } from '@/api/public/articles';
+import { getArticleBySlug, getPaginatedArticles, getTrendingArticles } from '@/api/public/articles';
 import { castArticleVote, addArticleComment } from '@/api/user/articleInteractions';
-import { Loader2, Calendar, Eye, ThumbsUp, ThumbsDown, MessageSquare, Send, User, ChevronLeft } from 'lucide-react';
+import { Loader2, Calendar, Eye, ThumbsUp, ThumbsDown, MessageSquare, Send, User, ChevronLeft, BookOpen, ArrowRight } from 'lucide-react';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
 
@@ -16,23 +16,54 @@ export default function BlogDetailsPage() {
   const { isAuthenticated } = useSelector((state: RootState) => state.auth);
   
   const [data, setData] = useState<any>(null);
+  const [relatedArticles, setRelatedArticles] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [commentText, setCommentText] = useState('');
   const [interacting, setInteracting] = useState(false);
 
-  const fetchArticle = async () => {
+  const fetchArticleAndRelated = async () => {
     try {
+      // 1. Fetch main article
       const res = await getArticleBySlug(slug as string);
       setData(res.data);
+      
+      const currentArticle = res.data.article;
+
+      // 2. Smart fetch for related articles
+      // Using the first meaningful word of the title to find similar context, 
+      // alongside trending articles as a fallback to guarantee a full grid.
+      const searchKeyword = currentArticle.title.split(' ').find((w: string) => w.length > 3) || '';
+      
+      const [searchRes, trendRes] = await Promise.all([
+        getPaginatedArticles({ search: searchKeyword, limit: 5 }),
+        getTrendingArticles()
+      ]);
+      
+      // Combine results, filter out the currently viewed article, and remove duplicates
+      const combined = [...(searchRes.data?.data || []), ...(trendRes.data || [])];
+      const uniqueRelated = Array.from(
+        new Map(
+          combined
+            .filter(a => a.id !== currentArticle.id)
+            .map(item => [item.id, item])
+        ).values()
+      );
+      
+      // Keep only the top 3 best matches
+      setRelatedArticles(uniqueRelated.slice(0, 3));
+
     } catch (error) {
-      console.error("Failed to load article");
+      console.error("Failed to load article or related content", error);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    if (slug) fetchArticle();
+    if (slug) {
+      setLoading(true);
+      fetchArticleAndRelated();
+    }
   }, [slug]);
 
   const handleVote = async (voteType: 'LIKE' | 'DISLIKE') => {
@@ -40,7 +71,9 @@ export default function BlogDetailsPage() {
     setInteracting(true);
     try {
       await castArticleVote({ articleId: data.article.id, voteType });
-      await fetchArticle();
+      // Refresh just the main article to update counts
+      const res = await getArticleBySlug(slug as string);
+      setData(res.data);
     } catch (err) {
       console.error("Vote failed");
     } finally {
@@ -57,7 +90,8 @@ export default function BlogDetailsPage() {
     try {
       await addArticleComment({ articleId: data.article.id, comment: commentText });
       setCommentText('');
-      await fetchArticle();
+      const res = await getArticleBySlug(slug as string);
+      setData(res.data);
     } catch (err) {
       console.error("Comment failed");
     } finally {
@@ -72,6 +106,7 @@ export default function BlogDetailsPage() {
 
   return (
     <div className="min-h-screen bg-slate-50/50 pb-20">
+      {/* HEADER HERO SECTION */}
       <div className="relative h-[45vh] w-full bg-slate-900 overflow-hidden">
         <img 
           src={article.thumbnailUrl || '/logo.svg'} 
@@ -82,19 +117,19 @@ export default function BlogDetailsPage() {
         
         <div className="absolute inset-0 flex items-center">
           <div className="max-w-4xl mx-auto px-6 w-full mb-12">
-            <Link href="/blogs" className="inline-flex items-center text-sky-400 text-sm font-bold mb-6 hover:text-sky-300 transition-colors">
-              <ChevronLeft className="h-4 w-4 mr-1" /> BACK TO BLOGS
+            <Link href="/blogs" className="inline-flex items-center text-sky-400 text-sm font-bold mb-6 hover:text-sky-300 transition-colors bg-white/10 px-4 py-2 rounded-full backdrop-blur-md border border-white/10">
+              <ChevronLeft className="h-4 w-4 mr-1" /> BACK TO INSIGHTS
             </Link>
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
               <h1 className="text-3xl md:text-5xl font-black text-white leading-tight mb-6">
                 {article.title}
               </h1>
-              <div className="flex flex-wrap items-center gap-6 text-slate-200 text-sm font-semibold">
-                <span className="flex items-center gap-2 px-3 py-1 bg-white/10 backdrop-blur-md rounded-lg">
+              <div className="flex flex-wrap items-center gap-4 text-slate-200 text-sm font-semibold">
+                <span className="flex items-center gap-2 px-4 py-2 bg-white/10 backdrop-blur-md rounded-xl border border-white/10">
                    <Calendar className="h-4 w-4 text-sky-400" /> 
                    {new Date(article.publishedAt || article.createdAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
                 </span>
-                <span className="flex items-center gap-2 px-3 py-1 bg-white/10 backdrop-blur-md rounded-lg">
+                <span className="flex items-center gap-2 px-4 py-2 bg-white/10 backdrop-blur-md rounded-xl border border-white/10">
                    <Eye className="h-4 w-4 text-sky-400" /> {article.viewsCount?.toLocaleString()} views
                 </span>
               </div>
@@ -104,39 +139,40 @@ export default function BlogDetailsPage() {
       </div>
 
       <div className="max-w-4xl mx-auto px-6 relative z-10 -mt-24">
+        {/* ARTICLE BODY */}
         <motion.div 
           initial={{ opacity: 0, y: 30 }} 
           animate={{ opacity: 1, y: 0 }} 
-          className="bg-white rounded-3xl shadow-xl shadow-slate-200/60 border border-slate-100 p-8 md:p-14 mb-10"
+          className="bg-white rounded-[2.5rem] shadow-xl shadow-slate-200/60 border border-slate-100 p-8 md:p-14 mb-10"
         >
-          <article className="prose prose-lg prose-slate max-w-none prose-headings:font-black prose-headings:text-slate-900 prose-p:text-slate-600 prose-p:leading-relaxed">
+          <article className="prose prose-lg prose-slate max-w-none prose-headings:font-black prose-headings:text-slate-900 prose-p:text-slate-600 prose-p:leading-relaxed prose-img:rounded-2xl">
             <div dangerouslySetInnerHTML={{ __html: article.content }} />
           </article>
 
-          <div className="mt-12 pt-10 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-6">
+          <div className="mt-16 pt-10 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-6">
             <div className="flex items-center gap-4">
-               <div className="h-10 w-10 bg-slate-100 rounded-full flex items-center justify-center">
-                  <User className="h-5 w-5 text-slate-400" />
+               <div className="h-12 w-12 bg-sky-50 rounded-full flex items-center justify-center border border-sky-100">
+                  <User className="h-6 w-6 text-sky-500" />
                </div>
                <div>
                   <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Published By</p>
-                  <p className="text-sm font-bold text-slate-900">{article.authorEmail?.split('@')[0]}</p>
+                  <p className="text-base font-black text-slate-900">{article.authorEmail?.split('@')[0]}</p>
                </div>
             </div>
 
-            <div className="flex items-center gap-2 bg-slate-50 p-1.5 rounded-2xl border border-slate-100">
+            <div className="flex items-center gap-2 bg-slate-50 p-2 rounded-2xl border border-slate-100 shadow-inner">
                <button 
                 onClick={() => handleVote('LIKE')} 
                 disabled={interacting}
-                className="flex items-center gap-2 px-5 py-2.5 rounded-xl hover:bg-white hover:text-sky-600 text-slate-500 font-bold text-sm transition-all hover:shadow-sm disabled:opacity-50"
+                className="flex items-center gap-2 px-5 py-3 rounded-xl hover:bg-white hover:text-sky-600 hover:shadow-sm text-slate-500 font-bold text-sm transition-all disabled:opacity-50"
                >
                  <ThumbsUp className={`h-4 w-4 ${interacting ? 'animate-pulse' : ''}`} /> {article.likesCount || 0}
                </button>
-               <div className="w-[1px] h-6 bg-slate-200" />
+               <div className="w-[1px] h-8 bg-slate-200" />
                <button 
                 onClick={() => handleVote('DISLIKE')} 
                 disabled={interacting}
-                className="flex items-center gap-2 px-5 py-2.5 rounded-xl hover:bg-white hover:text-rose-600 text-slate-500 font-bold text-sm transition-all hover:shadow-sm disabled:opacity-50"
+                className="flex items-center gap-2 px-5 py-3 rounded-xl hover:bg-white hover:text-rose-600 hover:shadow-sm text-slate-500 font-bold text-sm transition-all disabled:opacity-50"
                >
                  <ThumbsDown className="h-4 w-4" /> {article.dislikesCount || 0}
                </button>
@@ -144,32 +180,35 @@ export default function BlogDetailsPage() {
           </div>
         </motion.div>
 
-        <div className="max-w-3xl mx-auto">
+        {/* COMMENTS SECTION */}
+        <div className="max-w-3xl mx-auto mb-20">
           <div className="flex items-center gap-3 mb-8 px-2">
-            <MessageSquare className="h-5 w-5 text-sky-500" />
-            <h3 className="text-xl font-black text-slate-900">Community Discussion</h3>
-            <span className="text-xs font-bold bg-slate-200 text-slate-600 px-2 py-0.5 rounded-md">
+            <div className="h-10 w-10 bg-sky-50 rounded-xl flex items-center justify-center">
+              <MessageSquare className="h-5 w-5 text-sky-500" />
+            </div>
+            <h3 className="text-2xl font-black text-slate-900">Community Discussion</h3>
+            <span className="text-sm font-bold bg-slate-200 text-slate-700 px-3 py-1 rounded-lg ml-2">
               {comments?.length || 0}
             </span>
           </div>
 
           <form onSubmit={handleCommentSubmit} className="mb-12 group">
-            <div className="relative bg-white rounded-2xl border border-slate-200 p-2 focus-within:border-sky-500 focus-within:ring-4 focus-within:ring-sky-500/10 transition-all shadow-sm">
+            <div className="relative bg-white rounded-3xl border border-slate-200 p-3 focus-within:border-sky-500 focus-within:ring-4 focus-within:ring-sky-500/10 transition-all shadow-sm">
               <textarea
                 required
                 value={commentText}
                 onChange={(e) => setCommentText(e.target.value)}
-                placeholder={isAuthenticated ? "Share a professional insight..." : "Sign in to join the conversation"}
+                placeholder={isAuthenticated ? "Share your professional insight on this topic..." : "Sign in to join the conversation"}
                 disabled={!isAuthenticated || interacting}
-                className="w-full px-4 py-3 bg-transparent outline-none resize-none text-sm text-slate-700 min-h-[80px]"
+                className="w-full px-4 py-3 bg-transparent outline-none resize-none text-base text-slate-700 font-medium min-h-[100px]"
               />
-              <div className="flex justify-end p-2 border-t border-slate-50">
+              <div className="flex justify-end p-2 border-t border-slate-50 mt-2">
                 <button 
                   type="submit" 
                   disabled={!isAuthenticated || interacting || !commentText.trim()} 
-                  className="flex items-center gap-2 px-6 py-2 bg-sky-600 text-white text-xs font-bold rounded-xl hover:bg-sky-700 disabled:opacity-50 transition-all shadow-md shadow-sky-600/20"
+                  className="flex items-center gap-2 px-8 py-3 bg-slate-900 text-white text-sm font-bold rounded-xl hover:bg-sky-600 disabled:opacity-50 transition-all shadow-md"
                 >
-                  {interacting ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3 w-3" />}
+                  {interacting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                   POST COMMENT
                 </button>
               </div>
@@ -180,33 +219,91 @@ export default function BlogDetailsPage() {
             {comments && comments.length > 0 ? (
               comments.map((c: any) => (
                 <motion.div 
-                  initial={{ opacity: 0 }} 
-                  whileInView={{ opacity: 1 }}
+                  initial={{ opacity: 0, y: 10 }} 
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
                   key={c.id} 
-                  className="p-6 bg-white rounded-2xl border border-slate-100 shadow-sm"
+                  className="p-6 bg-white rounded-3xl border border-slate-100 shadow-sm"
                 >
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-2">
-                      <div className="h-7 w-7 bg-sky-50 text-sky-600 rounded-full flex items-center justify-center text-[10px] font-bold">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-3">
+                      <div className="h-10 w-10 bg-slate-100 text-slate-600 rounded-full flex items-center justify-center text-sm font-black border border-slate-200">
                         {c.userEmail?.charAt(0).toUpperCase()}
                       </div>
-                      <span className="text-sm font-bold text-slate-900">{c.userEmail?.split('@')[0]}</span>
+                      <span className="text-base font-bold text-slate-900">{c.userEmail?.split('@')[0]}</span>
                     </div>
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">
+                    <span className="text-xs font-bold text-slate-400 uppercase tracking-widest bg-slate-50 px-3 py-1 rounded-lg">
                       {new Date(c.createdAt).toLocaleDateString()}
                     </span>
                   </div>
-                  <p className="text-sm text-slate-600 leading-relaxed pl-9">{c.comment}</p>
+                  <p className="text-base text-slate-600 leading-relaxed pl-12 font-medium">{c.comment}</p>
                 </motion.div>
               ))
             ) : (
-              <div className="text-center py-10">
-                <p className="text-sm font-bold text-slate-400 italic">No comments yet. Start the conversation.</p>
+              <div className="text-center py-12 bg-white rounded-3xl border border-slate-100 shadow-sm border-dashed">
+                <p className="text-base font-bold text-slate-400">No comments yet. Start the conversation.</p>
               </div>
             )}
           </div>
         </div>
       </div>
+
+      {/* RELATED ARTICLES SECTION */}
+      {relatedArticles.length > 0 && (
+        <div className="w-full bg-slate-100/50 border-t border-slate-200 pt-20 pb-12">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex items-center justify-between mb-10">
+              <div className="flex items-center gap-3">
+                <div className="h-12 w-12 bg-white rounded-2xl shadow-sm border border-slate-200 flex items-center justify-center">
+                  <BookOpen className="h-6 w-6 text-sky-500" />
+                </div>
+                <h3 className="text-3xl font-black text-slate-900 tracking-tight">Recommended Reading</h3>
+              </div>
+              <Link href="/blogs" className="hidden sm:flex items-center gap-2 text-sm font-bold text-sky-600 hover:text-sky-700 bg-white px-5 py-2.5 rounded-full border border-sky-100 shadow-sm hover:shadow transition-all">
+                View All Insights <ArrowRight className="h-4 w-4" />
+              </Link>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+              {relatedArticles.map((post, idx) => (
+                <motion.div 
+                  key={post.id} 
+                  initial={{ opacity: 0, y: 20 }} 
+                  whileInView={{ opacity: 1, y: 0 }} 
+                  viewport={{ once: true }}
+                  transition={{ delay: idx * 0.1 }} 
+                  className="bg-white rounded-3xl overflow-hidden border border-slate-200 shadow-sm hover:shadow-xl transition-shadow flex flex-col group"
+                >
+                  <Link href={`/blogs/${post.slug}`} className="relative aspect-[16/10] overflow-hidden bg-slate-100">
+                    <img src={post.thumbnailUrl || '/logo.svg'} alt={post.title} className="object-cover w-full h-full group-hover:scale-105 transition-transform duration-500" />
+                    {post.categoryName && (
+                      <div className="absolute top-4 left-4 bg-slate-900/80 backdrop-blur-md px-3 py-1.5 rounded-lg text-[10px] font-black text-white tracking-widest uppercase shadow-sm">
+                        {post.categoryName}
+                      </div>
+                    )}
+                  </Link>
+                  <div className="p-8 flex flex-col flex-1">
+                    <div className="flex items-center gap-2 text-xs font-bold text-slate-400 mb-4 uppercase tracking-widest">
+                      <Calendar className="h-4 w-4" /> {new Date(post.createdAt).toLocaleDateString()}
+                    </div>
+                    <Link href={`/blogs/${post.slug}`}>
+                      <h3 className="text-xl font-black text-slate-900 mb-4 hover:text-sky-600 transition-colors line-clamp-2 leading-snug">{post.title}</h3>
+                    </Link>
+                    <div className="mt-auto flex items-center justify-between pt-6 border-t border-slate-100">
+                      <span className="text-sm text-slate-500 font-bold bg-slate-50 px-3 py-1 rounded-lg border border-slate-100 flex items-center gap-1.5">
+                        <Eye className="w-4 h-4 text-sky-500" /> {post.viewCount || 0}
+                      </span>
+                      <Link href={`/blogs/${post.slug}`} className="flex items-center gap-1.5 text-sm font-black text-slate-900 hover:text-sky-600 transition-colors">
+                        Read Article <ArrowRight className="h-4 w-4" />
+                      </Link>
+                    </div>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
