@@ -61,7 +61,7 @@ export default function ShopPage() {
   }, [page, debouncedSearch, minPrice, maxPrice, categoryId, minRating]);
 
   return (
-    <div className="min-h-screen bg-slate-50 relative overflow-hidden pb-20">
+    <div className="min-h-screen bg-slate-50 relative overflow-hidden pb-20 pt-10">
       <div className="absolute inset-0 z-0 h-[60vh] w-full bg-[linear-gradient(to_right,#0ea5e915_1px,transparent_1px),linear-gradient(to_bottom,#0ea5e915_1px,transparent_1px)] bg-[size:2rem_2rem] [mask-image:linear-gradient(to_bottom,white,transparent)]" />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 pt-12">

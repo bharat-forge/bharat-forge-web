@@ -96,7 +96,7 @@ export default function DealerProfilePage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-slate-50 py-12 px-4 sm:px-6 lg:px-8 pt-20">
       <div className="max-w-4xl mx-auto">
         <Link href="/dealer-locator" className="inline-flex items-center gap-2 text-sm text-slate-500 hover:text-slate-900 mb-8 transition-colors font-medium">
           <ArrowLeft className="w-4 h-4" /> Back to Search

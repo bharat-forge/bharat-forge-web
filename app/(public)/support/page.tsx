@@ -161,7 +161,7 @@ export default function SupportPage() {
   }
 
   return (
-    <div className="flex flex-col h-[calc(100vh-4rem)] bg-slate-50 p-4 sm:p-6 lg:p-8 overflow-hidden w-full">
+    <div className="flex flex-col h-[calc(100vh-4rem)] bg-slate-50  p-4 sm:p-6 lg:p-8 pt-20 sm:pt-24 lg:pt-28 overflow-hidden w-full ">
       <div className="max-w-7xl mx-auto w-full flex-1 flex flex-col lg:flex-row gap-6 min-h-0">
         
         <div className="w-full lg:w-1/3 flex flex-col min-h-0 bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">

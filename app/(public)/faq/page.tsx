@@ -49,13 +49,13 @@ export default function PublicFaqListingPage() {
   }, [search, activeCategory]);
 
   return (
-    <div className="bg-slate-50 min-h-screen w-full font-sans selection:bg-sky-500 selection:text-white pb-20">
+    <div className="bg-slate-50 min-h-screen w-full font-sans selection:bg-sky-500 selection:text-white pb-20 pt-20">
       
-      <section className="pt-28 pb-16 bg-white border-b border-slate-100 relative overflow-hidden">
+      <section className="pt-5 pb-16 bg-white border-b border-slate-100 relative overflow-hidden">
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-full max-w-4xl bg-[linear-gradient(to_bottom,#0ea5e908_1px,transparent_1px)] bg-[size:4rem_4rem]"></div>
         
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-          <div className="flex items-center justify-center gap-2 text-xs font-bold text-slate-400 uppercase tracking-widest mb-8">
+          <div className="flex items-center gap-2 text-xs font-bold text-slate-400 uppercase tracking-widest mb-8">
             <Link href="/" className="hover:text-sky-500 transition-colors">Home</Link>
             <ChevronRight size={14} className="text-slate-300" />
             <span className="text-sky-600">Knowledge Base</span>

@@ -66,7 +66,7 @@ export default function ContactPage() {
   };
 
   return (
-    <div className="bg-slate-50 min-h-screen w-full font-sans selection:bg-sky-500 selection:text-white pb-0">
+    <div className="bg-slate-50 min-h-screen w-full font-sans selection:bg-sky-500 selection:text-white pb-0 pt-20">
       
       <section className="pt-5 pb-12 lg:pt-5 lg:pb-20 relative">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">

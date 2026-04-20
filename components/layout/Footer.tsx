@@ -110,7 +110,7 @@ export default function Footer() {
               <li><Link href="/about" className="hover:text-sky-500 transition-colors">About Us</Link></li>
               <li><Link href="/blogs" className="hover:text-sky-500 transition-colors">Industry Blogs</Link></li>
               <li><Link href="/apply-dealer" className="hover:text-sky-500 transition-colors">Become a Dealer</Link></li>
-              <li><Link href="/compliance" className="hover:text-sky-500 transition-colors">Certifications</Link></li>
+              <li><Link href="/terms" className="hover:text-sky-500 transition-colors">Terms & Conditions</Link></li>
             </ul>
           </div>
 

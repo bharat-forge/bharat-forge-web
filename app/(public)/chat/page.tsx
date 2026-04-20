@@ -172,7 +172,7 @@ export default function UserChatPage() {
   }, [conversations, searchQuery]);
 
   return (
-    <div className="flex flex-col h-[calc(100vh-4rem)] overflow-hidden w-full gap-4 p-10">
+    <div className="flex flex-col h-[calc(100vh-4rem)] overflow-hidden w-full gap-4 p-10 pt-25">
       <div className="flex-shrink-0 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
         <div className="flex items-center gap-4">
           <div className="w-12 h-12 bg-sky-50 rounded-xl flex items-center justify-center border border-sky-100">

@@ -157,7 +157,7 @@ export default function CheckoutPage() {
   if (items.length === 0) return null;
 
   return (
-    <div className="min-h-screen bg-slate-50 py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-slate-50 pt-20 py-12 px-4 sm:px-6 lg:px-8 ">
       <div className="max-w-7xl mx-auto">
         <Link href="/cart" className="inline-flex items-center gap-2 text-sm text-slate-500 hover:text-slate-900 mb-8 transition-colors font-medium">
           <ChevronLeft className="w-4 h-4" /> Back to Cart

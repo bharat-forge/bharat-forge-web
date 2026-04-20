@@ -78,7 +78,7 @@ export default function DealerLocatorPage() {
   if (!isLoaded) return <div className="min-h-screen flex items-center justify-center"><div className="animate-spin w-12 h-12 border-4 border-sky-500 border-t-transparent rounded-full" /></div>;
 
   return (
-    <div className="h-[calc(100vh-80px)] flex flex-col md:flex-row bg-slate-50">
+    <div className="h-[calc(100vh-80px)] flex flex-col md:flex-row bg-slate-50 pt-15">
       <div className="w-full md:w-1/3 h-1/2 md:h-full bg-white shadow-xl z-10 flex flex-col">
         <div className="p-6 border-b border-slate-100">
           <h1 className="text-2xl font-black text-slate-900 mb-2">Find a Dealer</h1>

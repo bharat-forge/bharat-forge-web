@@ -108,7 +108,7 @@ export default function AboutPage() {
   }, []);
 
   return (
-    <div className="bg-white min-h-screen w-full font-sans selection:bg-sky-500 selection:text-white pb-0 overflow-hidden">
+    <div className="bg-white min-h-screen w-full font-sans selection:bg-sky-500 selection:text-white pb-0 pt-20 overflow-hidden">
       
       <div className="pt-5 pb-5 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-20">
         <div className="flex items-center gap-2 text-xs font-bold text-slate-400 uppercase tracking-widest">
