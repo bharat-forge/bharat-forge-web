@@ -551,6 +551,44 @@ export default function HomePage() {
         </div>
       </section>
 
+      {/* NEW WHY CHOOSE US SECTION */}
+      <section className="py-24 bg-white border-b border-slate-200">
+        <div className="max-w-7xl mx-auto px-4">
+          <div className="text-center max-w-3xl mx-auto mb-16">
+            <span className="inline-block py-1.5 px-4 rounded-full bg-slate-50 text-slate-600 font-black tracking-widest uppercase text-[10px] mb-4 border border-slate-200 shadow-sm">The BharatForge Advantage</span>
+            <h2 className="text-4xl md:text-5xl font-black text-slate-900 tracking-tight mb-6">Why Choose Us?</h2>
+            <p className="text-slate-600 font-medium text-lg leading-relaxed">
+              We eliminate supply chain bottlenecks, guarantee authenticity, and optimize logistics from manufacturer to your door.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div className="bg-slate-50 p-10 rounded-3xl border border-slate-200 flex flex-col items-center text-center hover:border-sky-300 transition-colors group">
+              <div className="w-20 h-20 bg-white shadow-sm rounded-full flex items-center justify-center mb-6 text-sky-500 group-hover:scale-110 group-hover:bg-sky-500 group-hover:text-white transition-all">
+                <ShieldCheck className="w-10 h-10" />
+              </div>
+              <h3 className="text-2xl font-black text-slate-900 mb-4">100% Genuine Parts</h3>
+              <p className="text-slate-600 font-medium leading-relaxed">Every SKU is sourced directly from certified Tier-1 manufacturers, guaranteeing OEM compliance and safety.</p>
+            </div>
+
+            <div className="bg-slate-50 p-10 rounded-3xl border border-slate-200 flex flex-col items-center text-center hover:border-sky-300 transition-colors group">
+              <div className="w-20 h-20 bg-white shadow-sm rounded-full flex items-center justify-center mb-6 text-sky-500 group-hover:scale-110 group-hover:bg-sky-500 group-hover:text-white transition-all">
+                <Zap className="w-10 h-10" />
+              </div>
+              <h3 className="text-2xl font-black text-slate-900 mb-4">Lightning Fast Dispatch</h3>
+              <p className="text-slate-600 font-medium leading-relaxed">With localized fulfillment centers globally, orders are processed and dispatched within 24 hours of placement.</p>
+            </div>
+
+            <div className="bg-slate-50 p-10 rounded-3xl border border-slate-200 flex flex-col items-center text-center hover:border-sky-300 transition-colors group">
+              <div className="w-20 h-20 bg-white shadow-sm rounded-full flex items-center justify-center mb-6 text-sky-500 group-hover:scale-110 group-hover:bg-sky-500 group-hover:text-white transition-all">
+                <ThumbsUp className="w-10 h-10" />
+              </div>
+              <h3 className="text-2xl font-black text-slate-900 mb-4">Unmatched Reliability</h3>
+              <p className="text-slate-600 font-medium leading-relaxed">Our 99.8% fulfillment success rate means you can confidently promise delivery to your end customers.</p>
+            </div>
+          </div>
+        </div>
+      </section>
       {/* SUPPORT DIRECTORY (FAQ + CONTACT) */}
       <section className="py-32 bg-slate-50 border-b border-slate-200">
         <div className="max-w-7xl mx-auto px-4 grid grid-cols-1 lg:grid-cols-2 gap-20">
@@ -615,44 +653,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* NEW WHY CHOOSE US SECTION */}
-      <section className="py-24 bg-white border-b border-slate-200">
-        <div className="max-w-7xl mx-auto px-4">
-          <div className="text-center max-w-3xl mx-auto mb-16">
-            <span className="inline-block py-1.5 px-4 rounded-full bg-slate-50 text-slate-600 font-black tracking-widest uppercase text-[10px] mb-4 border border-slate-200 shadow-sm">The BharatForge Advantage</span>
-            <h2 className="text-4xl md:text-5xl font-black text-slate-900 tracking-tight mb-6">Why Choose Us?</h2>
-            <p className="text-slate-600 font-medium text-lg leading-relaxed">
-              We eliminate supply chain bottlenecks, guarantee authenticity, and optimize logistics from manufacturer to your door.
-            </p>
-          </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <div className="bg-slate-50 p-10 rounded-3xl border border-slate-200 flex flex-col items-center text-center hover:border-sky-300 transition-colors group">
-              <div className="w-20 h-20 bg-white shadow-sm rounded-full flex items-center justify-center mb-6 text-sky-500 group-hover:scale-110 group-hover:bg-sky-500 group-hover:text-white transition-all">
-                <ShieldCheck className="w-10 h-10" />
-              </div>
-              <h3 className="text-2xl font-black text-slate-900 mb-4">100% Genuine Parts</h3>
-              <p className="text-slate-600 font-medium leading-relaxed">Every SKU is sourced directly from certified Tier-1 manufacturers, guaranteeing OEM compliance and safety.</p>
-            </div>
-
-            <div className="bg-slate-50 p-10 rounded-3xl border border-slate-200 flex flex-col items-center text-center hover:border-sky-300 transition-colors group">
-              <div className="w-20 h-20 bg-white shadow-sm rounded-full flex items-center justify-center mb-6 text-sky-500 group-hover:scale-110 group-hover:bg-sky-500 group-hover:text-white transition-all">
-                <Zap className="w-10 h-10" />
-              </div>
-              <h3 className="text-2xl font-black text-slate-900 mb-4">Lightning Fast Dispatch</h3>
-              <p className="text-slate-600 font-medium leading-relaxed">With localized fulfillment centers globally, orders are processed and dispatched within 24 hours of placement.</p>
-            </div>
-
-            <div className="bg-slate-50 p-10 rounded-3xl border border-slate-200 flex flex-col items-center text-center hover:border-sky-300 transition-colors group">
-              <div className="w-20 h-20 bg-white shadow-sm rounded-full flex items-center justify-center mb-6 text-sky-500 group-hover:scale-110 group-hover:bg-sky-500 group-hover:text-white transition-all">
-                <ThumbsUp className="w-10 h-10" />
-              </div>
-              <h3 className="text-2xl font-black text-slate-900 mb-4">Unmatched Reliability</h3>
-              <p className="text-slate-600 font-medium leading-relaxed">Our 99.8% fulfillment success rate means you can confidently promise delivery to your end customers.</p>
-            </div>
-          </div>
-        </div>
-      </section>
 
       {/* MAP SECTION */}
       <section className="w-full relative h-[60vh] min-h-[500px]">
