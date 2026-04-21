@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Plus, Search, Edit2, Trash2, X, Package, AlertCircle, 
   RefreshCw, ChevronLeft, ChevronRight, Image as ImageIcon, 
-  MessageSquare, Star, Code, Shield, PlusCircle, Settings2
+  MessageSquare, Star, Settings2, PlusCircle
 } from 'lucide-react';
 import { 
   getPaginatedProducts,
@@ -110,14 +110,15 @@ export default function AdminProductsPage() {
         });
         
         const certs = product.certifications || [];
-        setCertificationsList(certs.map((c: string) => ({ id: Math.random().toString(), value: c })));
+        setCertificationsList(certs.map((c: any) => ({ id: Math.random().toString(), value: String(c || '') })));
         
         const specs = product.specifications || {};
-        setSpecsList(Object.entries(specs).map(([k, v]) => ({ id: Math.random().toString(), key: k, value: v as string })));
+        setSpecsList(Object.entries(specs).map(([k, v]) => ({ id: Math.random().toString(), key: String(k), value: String(v || '') })));
         
         const bulk = product.bulkPricing || {};
-        setBulkPricingList(Object.entries(bulk).map(([k, v]) => ({ id: Math.random().toString(), qty: k, discount: v as string })));
+        setBulkPricingList(Object.entries(bulk).map(([k, v]) => ({ id: Math.random().toString(), qty: String(k), discount: String(v || '') })));
       } else if (mode === 'COMPATIBILITY') {
+        setFormData(prev => ({ ...prev, categoryId: product.categoryId }));
         setCompatibilities(product.compatibilities || {});
       }
     } else {
@@ -136,8 +137,10 @@ export default function AdminProductsPage() {
 
   const formatListToObject = (list: { key: string; value: string }[]) => {
     return list.reduce((acc, curr) => {
-      if (curr.key.trim() && curr.value.trim()) {
-        acc[curr.key.trim()] = curr.value.trim();
+      const k = String(curr.key || '').trim();
+      const v = String(curr.value || '').trim();
+      if (k && v) {
+        acc[k] = v;
       }
       return acc;
     }, {} as Record<string, string>);
@@ -145,8 +148,10 @@ export default function AdminProductsPage() {
 
   const formatBulkPricing = (list: { qty: string; discount: string }[]) => {
     return list.reduce((acc, curr) => {
-      if (curr.qty.trim() && curr.discount.trim()) {
-        acc[curr.qty.trim()] = parseFloat(curr.discount.trim()) || 0;
+      const q = String(curr.qty || '').trim();
+      const d = String(curr.discount || '').trim();
+      if (q && d) {
+        acc[q] = parseFloat(d) || 0;
       }
       return acc;
     }, {} as Record<string, number>);
@@ -158,7 +163,7 @@ export default function AdminProductsPage() {
     setError('');
     
     try {
-      const certifications = certificationsList.map(c => c.value.trim()).filter(Boolean);
+      const certifications = certificationsList.map(c => String(c.value || '').trim()).filter(Boolean);
       const specifications = formatListToObject(specsList);
       const bulkPricing = formatBulkPricing(bulkPricingList);
 
@@ -194,7 +199,7 @@ export default function AdminProductsPage() {
       setIsModalOpen(false);
       fetchProducts(meta.currentPage);
     } catch (err: any) {
-      setError(err.response?.data?.message || 'An error occurred while saving');
+      setError(err.response?.data?.message || err.message || 'An error occurred while saving');
     } finally {
       setFormLoading(false);
     }
@@ -255,7 +260,7 @@ export default function AdminProductsPage() {
     }
   };
 
-  const activeCategoryId = modalMode === 'CREATE' || modalMode === 'EDIT_BASE' ? formData.categoryId : selectedProduct?.categoryId;
+  const activeCategoryId = formData.categoryId;
   const activeCategory = categories.find(c => c.id === activeCategoryId);
   const activeBlueprintFilters = activeCategory?.searchBlueprint?.filters || [];
 
@@ -557,7 +562,7 @@ export default function AdminProductsPage() {
                         </div>
                       </div>
 
-                      <div className="space-y-4">
+                      <div className="space-y-4 pt-6">
                         <h3 className="text-base font-black text-slate-800 border-b border-slate-100 pb-2">Specifications & Details</h3>
                         
                         <div className="space-y-3">
