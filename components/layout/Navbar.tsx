@@ -65,9 +65,9 @@ export default function Navbar() {
     router.push('/login');
   };
 
-  const getDashboardLink = () => {
-    if (user?.role === 'ADMIN') return '/admin/categories';
-    if (user?.role === 'DEALER') return '/dealer/products';
+const getDashboardLink = () => {
+    if (user?.role === 'ADMIN') return '/admin/dashboard';
+    if (user?.role === 'DEALER') return '/dealer'; 
     return '/profile';
   };
 

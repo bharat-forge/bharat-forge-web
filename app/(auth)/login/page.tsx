@@ -60,7 +60,7 @@ export default function LoginPage() {
         dispatch(setCredentials({ user: data.user, token: data.token }));
 
         if (data.user.role === 'ADMIN') router.push('/admin/dashboard');
-        else if (data.user.role === 'DEALER') router.push('/dealer/dashboard');
+        else if (data.user.role === 'DEALER') router.push('/dealer');
         else router.push('/shop');
       } else {
         setStep('otp');
@@ -85,7 +85,7 @@ export default function LoginPage() {
       dispatch(setCredentials({ user: data.user, token: data.token }));
 
       if (data.user.role === 'ADMIN') router.push('/admin/dashboard');
-      else if (data.user.role === 'DEALER') router.push('/dealer/dashboard');
+      else if (data.user.role === 'DEALER') router.push('/dealer');
       else router.push('/shop');
     } catch (err: any) {
       setError(err.response?.data?.message || 'Invalid or expired OTP');

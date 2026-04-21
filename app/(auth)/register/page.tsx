@@ -37,6 +37,11 @@ export default function RegisterPage() {
     firstName: '', lastName: '', mobileNumber: '', dob: '', gender: 'MALE'
   });
 
+  // NEW: State for Dealer specific fields
+  const [dealerData, setDealerData] = useState({
+    businessName: '', gstNumber: '', street: '', city: '', state: '', pincode: ''
+  });
+
   const [settings, setSettings] = useState({
     isTwoFactorEnabled: true
   });
@@ -79,7 +84,6 @@ export default function RegisterPage() {
 
     try {
       const { data } = await verifyOTP({ email, otp, type: 'REGISTER' });
-
       dispatch(setCredentials({ user: data.user, token: data.token }));
       setStep('ONBOARDING');
     } catch (err: any) {
@@ -95,16 +99,23 @@ export default function RegisterPage() {
     setError('');
 
     try {
-      const { data } = await updateMyProfile({ metadata, settings });
+      // We pass the dealerData along with metadata if the user is a dealer
+      const payload = { 
+        metadata, 
+        settings, 
+        ...(role === 'DEALER' && { dealerData }) 
+      };
+
+      const { data } = await updateMyProfile(payload);
       dispatch(updateUserMetadata(data.metadata));
 
       if (role === 'DEALER') {
-        router.push('/dealer/products');
+        router.push('/dealer'); // Routes to the Hub page we made earlier
       } else {
         router.push('/shop');
       }
     } catch (err: any) {
-      setError('Failed to update profile. Please try again.');
+      setError(err.response?.data?.message || 'Failed to update profile. Please try again.');
       setLoading(false);
     }
   };
@@ -128,7 +139,7 @@ export default function RegisterPage() {
     <div className="min-h-screen bg-white flex flex-col justify-center py-12 sm:px-6 lg:px-8 relative overflow-hidden">
       <div className="absolute inset-0 z-0 h-[60vh] w-full bg-[linear-gradient(to_right,#0ea5e915_1px,transparent_1px),linear-gradient(to_bottom,#0ea5e915_1px,transparent_1px)] bg-[size:2rem_2rem] [mask-image:linear-gradient(to_bottom,white,transparent)]" />
 
-      <div className="sm:mx-auto sm:w-full sm:max-w-md relative z-10">
+      <div className="sm:mx-auto sm:w-full sm:max-w-2xl relative z-10">
         <div className="flex justify-center">
           <Image src="/logo.svg" alt="Bharat Forge" width={64} height={64} className="h-24 w-auto" />
         </div>
@@ -140,7 +151,7 @@ export default function RegisterPage() {
         </p>
       </div>
 
-      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md relative z-10">
+      <div className={`mt-8 sm:mx-auto sm:w-full relative z-10 ${step === 'ONBOARDING' && role === 'DEALER' ? 'max-w-3xl' : 'max-w-md'}`}>
         <div className="bg-white/80 backdrop-blur-xl py-8 px-4 shadow-2xl shadow-sky-900/5 sm:rounded-3xl sm:px-10 border border-slate-100">
 
           {error && <div className="mb-6 bg-red-50 text-red-600 p-3 rounded-xl text-sm border border-red-100 font-medium">{error}</div>}
@@ -148,6 +159,7 @@ export default function RegisterPage() {
 
           <AnimatePresence mode="wait">
             {step === 'REGISTER' && (
+               // ... (Keep existing REGISTER form exactly as it was)
               <motion.div key="register" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }}>
                 <form className="space-y-5" onSubmit={handleRegister}>
                   <div>
@@ -200,6 +212,7 @@ export default function RegisterPage() {
             )}
 
             {step === 'OTP' && (
+              // ... (Keep existing OTP form exactly as it was)
               <motion.form key="otp" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="space-y-6" onSubmit={handleVerifyOTP}>
                 <div className="text-center">
                   <p className="text-sm text-slate-500 mb-4">Enter the verification code sent to <br /><span className="font-medium text-slate-700">{email}</span></p>
@@ -225,37 +238,75 @@ export default function RegisterPage() {
             )}
 
             {step === 'ONBOARDING' && (
-              <motion.form key="onboarding" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-5" onSubmit={handleOnboarding}>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">First Name</label>
-                    <input type="text" required value={metadata.firstName} onChange={(e) => setMetadata({ ...metadata, firstName: e.target.value })} className="block w-full px-4 py-3 border border-slate-200 rounded-xl bg-slate-50 focus:bg-white focus:ring-2 focus:ring-sky-500/20 sm:text-sm outline-none font-medium" />
+              <motion.form key="onboarding" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6" onSubmit={handleOnboarding}>
+                
+                <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200 space-y-5">
+                  <h3 className="font-bold text-slate-900 text-lg border-b border-slate-200 pb-2">Personal Details</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">First Name</label>
+                      <input type="text" required value={metadata.firstName} onChange={(e) => setMetadata({ ...metadata, firstName: e.target.value })} className="block w-full px-4 py-3 border border-slate-200 rounded-xl bg-white focus:ring-2 focus:ring-sky-500/20 sm:text-sm outline-none font-medium" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Last Name</label>
+                      <input type="text" required value={metadata.lastName} onChange={(e) => setMetadata({ ...metadata, lastName: e.target.value })} className="block w-full px-4 py-3 border border-slate-200 rounded-xl bg-white focus:ring-2 focus:ring-sky-500/20 sm:text-sm outline-none font-medium" />
+                    </div>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Last Name</label>
-                    <input type="text" required value={metadata.lastName} onChange={(e) => setMetadata({ ...metadata, lastName: e.target.value })} className="block w-full px-4 py-3 border border-slate-200 rounded-xl bg-slate-50 focus:bg-white focus:ring-2 focus:ring-sky-500/20 sm:text-sm outline-none font-medium" />
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Mobile Number</label>
+                    <input type="tel" required value={metadata.mobileNumber} onChange={(e) => setMetadata({ ...metadata, mobileNumber: e.target.value })} className="block w-full px-4 py-3 border border-slate-200 rounded-xl bg-white focus:ring-2 focus:ring-sky-500/20 sm:text-sm outline-none font-medium" />
                   </div>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Mobile Number</label>
-                  <input type="tel" required value={metadata.mobileNumber} onChange={(e) => setMetadata({ ...metadata, mobileNumber: e.target.value })} className="block w-full px-4 py-3 border border-slate-200 rounded-xl bg-slate-50 focus:bg-white focus:ring-2 focus:ring-sky-500/20 sm:text-sm outline-none font-medium" />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Date of Birth</label>
-                    <input type="date" required value={metadata.dob} onChange={(e) => setMetadata({ ...metadata, dob: e.target.value })} className="block w-full px-4 py-3 border border-slate-200 rounded-xl bg-slate-50 focus:bg-white focus:ring-2 focus:ring-sky-500/20 sm:text-sm outline-none font-medium" />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Gender</label>
-                    <select required value={metadata.gender} onChange={(e) => setMetadata({ ...metadata, gender: e.target.value })} className="block w-full px-4 py-3 border border-slate-200 rounded-xl bg-slate-50 focus:bg-white focus:ring-2 focus:ring-sky-500/20 sm:text-sm outline-none font-medium cursor-pointer appearance-none">
-                      <option value="MALE">Male</option>
-                      <option value="FEMALE">Female</option>
-                      <option value="OTHER">Other</option>
-                    </select>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Date of Birth</label>
+                      <input type="date" required value={metadata.dob} onChange={(e) => setMetadata({ ...metadata, dob: e.target.value })} className="block w-full px-4 py-3 border border-slate-200 rounded-xl bg-white focus:ring-2 focus:ring-sky-500/20 sm:text-sm outline-none font-medium" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Gender</label>
+                      <select required value={metadata.gender} onChange={(e) => setMetadata({ ...metadata, gender: e.target.value })} className="block w-full px-4 py-3 border border-slate-200 rounded-xl bg-white focus:ring-2 focus:ring-sky-500/20 sm:text-sm outline-none font-medium cursor-pointer">
+                        <option value="MALE">Male</option>
+                        <option value="FEMALE">Female</option>
+                        <option value="OTHER">Other</option>
+                      </select>
+                    </div>
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between p-4 border border-slate-200 rounded-xl bg-slate-50 mt-4 cursor-pointer" onClick={() => setSettings(prev => ({ ...prev, isTwoFactorEnabled: !prev.isTwoFactorEnabled }))}>
+                {role === 'DEALER' && (
+                  <div className="bg-sky-50/50 p-6 rounded-2xl border border-sky-100 space-y-5">
+                    <h3 className="font-bold text-slate-900 text-lg border-b border-sky-200 pb-2">Dealership Details</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">Business Name</label>
+                        <input type="text" required value={dealerData.businessName} onChange={(e) => setDealerData({ ...dealerData, businessName: e.target.value })} className="block w-full px-4 py-3 border border-slate-200 rounded-xl bg-white focus:ring-2 focus:ring-sky-500/20 sm:text-sm outline-none font-medium" />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">GST Number</label>
+                        <input type="text" required value={dealerData.gstNumber} onChange={(e) => setDealerData({ ...dealerData, gstNumber: e.target.value })} className="block w-full px-4 py-3 border border-slate-200 rounded-xl bg-white focus:ring-2 focus:ring-sky-500/20 sm:text-sm outline-none font-medium uppercase" />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Street Address</label>
+                      <input type="text" required value={dealerData.street} onChange={(e) => setDealerData({ ...dealerData, street: e.target.value })} className="block w-full px-4 py-3 border border-slate-200 rounded-xl bg-white focus:ring-2 focus:ring-sky-500/20 sm:text-sm outline-none font-medium" />
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">City</label>
+                        <input type="text" required value={dealerData.city} onChange={(e) => setDealerData({ ...dealerData, city: e.target.value })} className="block w-full px-4 py-3 border border-slate-200 rounded-xl bg-white focus:ring-2 focus:ring-sky-500/20 sm:text-sm outline-none font-medium" />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">State</label>
+                        <input type="text" required value={dealerData.state} onChange={(e) => setDealerData({ ...dealerData, state: e.target.value })} className="block w-full px-4 py-3 border border-slate-200 rounded-xl bg-white focus:ring-2 focus:ring-sky-500/20 sm:text-sm outline-none font-medium" />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">Pincode</label>
+                        <input type="text" required value={dealerData.pincode} onChange={(e) => setDealerData({ ...dealerData, pincode: e.target.value })} className="block w-full px-4 py-3 border border-slate-200 rounded-xl bg-white focus:ring-2 focus:ring-sky-500/20 sm:text-sm outline-none font-medium" />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex items-center justify-between p-4 border border-slate-200 rounded-xl bg-slate-50 cursor-pointer" onClick={() => setSettings(prev => ({ ...prev, isTwoFactorEnabled: !prev.isTwoFactorEnabled }))}>
                   <div>
                     <p className="font-bold text-slate-700 text-sm">Two-Factor Authentication</p>
                     <p className="text-xs text-slate-500">Require an OTP when logging in.</p>

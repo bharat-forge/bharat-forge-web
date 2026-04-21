@@ -12,8 +12,9 @@ export default function DealerLayout({ children }: { children: React.ReactNode }
   const { user, isAuthenticated } = useSelector((state: RootState) => state.auth);
   const router = useRouter();
   const pathname = usePathname();
-  const [loading, setLoading] = useState(true);
-  const [status, setStatus] = useState<string | null>(null);
+
+  const [isReady, setIsReady] = useState(false);
+  const [showSidebar, setShowSidebar] = useState(false);
 
   useEffect(() => {
     if (!isAuthenticated || user?.role !== 'DEALER') {
@@ -21,29 +22,44 @@ export default function DealerLayout({ children }: { children: React.ReactNode }
       return;
     }
 
-    const checkStatus = async () => {
+    // If they are on the Hub page (/dealer), let page.tsx handle all logic and UI.
+    if (pathname === '/dealer') {
+      setShowSidebar(false);
+      setIsReady(true);
+      return;
+    }
+
+    const secureSubRoutes = async () => {
       try {
         const { data } = await getVerificationRequirements();
-        setStatus(data.dealerStatus);
+        const isFullyLocked = data.dealerStatus === 'REJECTED' || data.dealerStatus === 'SUSPENDED_FULL';
+        const isReadyForProducts = (data.dealerStatus === 'APPROVED' || data.dealerStatus === 'SUSPENDED_PURCHASES') && data.overallDocsStatus === 'APPROVED';
 
-        const isApproved = data.dealerStatus === 'APPROVED' || data.dealerStatus === 'SUSPENDED_PURCHASES';
-        
-        if (!isApproved && pathname !== '/dealer/verification') {
+        // 1. If locked, kick them back to the Hub to see the error message
+        if (isFullyLocked) {
+          router.replace('/dealer');
+        }
+        // 2. If trying to access products without being ready, kick to Verification
+        else if (!isReadyForProducts && pathname !== '/dealer/verification') {
           router.replace('/dealer/verification');
-        } else if (isApproved && pathname === '/dealer/verification') {
+        }
+        // 3. THE FIX: If they are fully approved but lingering on the verification page, push them to products.
+        else if (isReadyForProducts && pathname === '/dealer/verification') {
           router.replace('/dealer/products');
         }
+        // 4. Otherwise, they are allowed here. Turn on the sidebar if they are approved.
+        else {
+          setShowSidebar(isReadyForProducts);
+          setIsReady(true);
+        }
       } catch (error) {
-        console.error('Failed to fetch dealer status');
-      } finally {
-        setLoading(false);
+        router.replace('/dealer');
       }
     };
-
-    checkStatus();
+    secureSubRoutes();
   }, [isAuthenticated, user, router, pathname]);
 
-  if (loading) {
+  if (!isReady) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50">
         <Loader2 className="h-8 w-8 animate-spin text-sky-500" />
@@ -51,13 +67,10 @@ export default function DealerLayout({ children }: { children: React.ReactNode }
     );
   }
 
-  if (!isAuthenticated || user?.role !== 'DEALER') return null;
-
   return (
     <div className="flex min-h-screen bg-slate-50">
-      {status === 'APPROVED' || status === 'SUSPENDED_PURCHASES' ? <DealerSidebar /> : null}
+      {showSidebar && <DealerSidebar />}
       <main className="flex-1 flex flex-col overflow-hidden min-w-0">
-        {/* FIXED: Removed max-w-7xl and mx-auto so the pages inside can stretch freely */}
         <div className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 w-full">
           {children}
         </div>

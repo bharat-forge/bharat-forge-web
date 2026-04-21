@@ -2,12 +2,13 @@
 
 import { useState, useEffect } from 'react';
 import { getVerificationRequirements, submitVerificationData } from '@/api/dealer/verification';
-import { Loader2, UploadCloud, AlertCircle, CheckCircle2, Clock } from 'lucide-react';
+import { Loader2, UploadCloud, AlertCircle, CheckCircle2, Clock, FileCheck } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 export default function DealerVerificationPage() {
   const [requirements, setRequirements] = useState<any[]>([]);
   const [dealerStatus, setDealerStatus] = useState('');
+  const [overallDocsStatus, setOverallDocsStatus] = useState('');
   const [loading, setLoading] = useState(true);
   const [submitLoaders, setSubmitLoaders] = useState<{ [key: string]: boolean }>({});
   const [error, setError] = useState('');
@@ -20,6 +21,7 @@ export default function DealerVerificationPage() {
       const { data } = await getVerificationRequirements();
       setRequirements(data.requirements);
       setDealerStatus(data.dealerStatus);
+      setOverallDocsStatus(data.overallDocsStatus);
     } catch (err) {
       setError('Failed to load verification requirements.');
     } finally {
@@ -98,6 +100,27 @@ export default function DealerVerificationPage() {
 
   if (loading) return <div className="flex justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-sky-500" /></div>;
 
+  if (dealerStatus === 'PENDING' && (overallDocsStatus === 'PENDING_REVIEW' || overallDocsStatus === 'APPROVED')) {
+    return (
+      <div className="max-w-2xl mx-auto py-20 text-center">
+        <div className="bg-white p-10 rounded-3xl shadow-sm border border-slate-200">
+          <motion.div initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="flex justify-center mb-6">
+            <div className="p-4 bg-sky-50 rounded-full">
+              <FileCheck className="w-12 h-12 text-sky-500" />
+            </div>
+          </motion.div>
+          <h1 className="text-2xl font-black text-slate-900 mb-3">Documents Under Review</h1>
+          <p className="text-slate-600 mb-6">
+            Your verification documents have been successfully submitted. Please wait while our administration team verifies your information to activate your account.
+          </p>
+          <div className="inline-flex items-center gap-2 text-sm font-bold text-sky-600 bg-sky-50 px-4 py-2 rounded-full">
+            <Clock className="w-4 h-4" /> Verification Pending
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-4xl mx-auto py-8">
       <div className="bg-white rounded-3xl shadow-sm border border-slate-100 p-8 mb-8">
@@ -138,9 +161,17 @@ export default function DealerVerificationPage() {
                   </div>
                   <p className="text-slate-500 text-sm mb-4">{blueprint.description}</p>
                   
-                  {isRejected && submission?.adminRemarks && (
-                    <div className="mb-4 p-3 bg-red-50 rounded-lg text-sm text-red-700 border border-red-100">
-                      <strong>Admin Feedback:</strong> {submission.adminRemarks}
+                  {isRejected && (
+                    <div className="mb-4 space-y-2">
+                      <div className="flex items-center gap-2 text-red-600 text-sm font-bold">
+                        <AlertCircle className="h-5 w-5" /> Previous Submission Rejected
+                      </div>
+                      <p className="text-sm text-slate-600">Please review and upload a valid document.</p>
+                      {submission?.adminRemarks && (
+                        <div className="p-3 bg-red-50 rounded-lg text-sm text-red-700 border border-red-100 mt-2">
+                          <strong>Admin Feedback:</strong> {submission.adminRemarks}
+                        </div>
+                      )}
                     </div>
                   )}
 
@@ -161,7 +192,7 @@ export default function DealerVerificationPage() {
                   <div className="w-full md:w-auto md:min-w-[320px]">
                     <form onSubmit={(e) => handleSubmit(e, blueprint.id, blueprint.type)} className="flex flex-col gap-3">
                       {blueprint.type === 'FILE' ? (
-                        <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-slate-300 rounded-xl cursor-pointer hover:bg-slate-50 transition-colors overflow-hidden">
+                        <label className={`flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-xl cursor-pointer transition-colors overflow-hidden ${isRejected ? 'border-red-300 hover:bg-red-50' : 'border-slate-300 hover:bg-slate-50'}`}>
                           {selectedFiles[blueprint.id] ? (
                             <div className="relative w-full h-full p-2 flex flex-col items-center justify-center text-center">
                               {filePreviews[blueprint.id] ? (
@@ -179,7 +210,7 @@ export default function DealerVerificationPage() {
                             </div>
                           ) : (
                             <div className="flex flex-col items-center justify-center pt-5 pb-6 px-4 text-center">
-                              <UploadCloud className="w-8 h-8 text-slate-400 mb-2" />
+                              <UploadCloud className={`w-8 h-8 mb-2 ${isRejected ? 'text-red-400' : 'text-slate-400'}`} />
                               <p className="text-sm text-slate-500 font-medium">Click to upload PDF/Image</p>
                             </div>
                           )}
@@ -192,7 +223,7 @@ export default function DealerVerificationPage() {
                           />
                         </label>
                       ) : (
-                        <input type="text" required placeholder={`Enter ${blueprint.name}`} className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-sky-500/20" />
+                        <input type="text" required placeholder={`Enter ${blueprint.name}`} className={`w-full px-4 py-3 rounded-xl border focus:outline-none focus:ring-2 ${isRejected ? 'border-red-200 focus:ring-red-500/20' : 'border-slate-200 focus:ring-sky-500/20'}`} />
                       )}
                       
                       <button 
@@ -200,7 +231,7 @@ export default function DealerVerificationPage() {
                         disabled={submitLoaders[blueprint.id]}
                         className="w-full py-2.5 px-4 bg-slate-900 text-white rounded-xl text-sm font-medium hover:bg-slate-800 disabled:opacity-50 transition-colors flex justify-center items-center"
                       >
-                        {submitLoaders[blueprint.id] ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Submit Document'}
+                        {submitLoaders[blueprint.id] ? <Loader2 className="h-4 w-4 animate-spin" /> : isRejected ? 'Re-submit Document' : 'Submit Document'}
                       </button>
                     </form>
                   </div>

@@ -43,7 +43,6 @@ export default function AdminDealersPage() {
   const [complianceData, setComplianceData] = useState<any[]>([]);
   const [complianceLoading, setComplianceLoading] = useState(false);
   
-  // NEW: State to handle document previews
   const [previewSubmission, setPreviewSubmission] = useState<{ url: string, type: 'IMAGE' | 'PDF' | 'OTHER', reqName: string } | null>(null);
 
   const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
@@ -101,7 +100,7 @@ export default function AdminDealersPage() {
   const handleOpenCompliance = async (dealer: any) => {
     setSelectedDealer(dealer);
     setIsComplianceModalOpen(true);
-    setPreviewSubmission(null); // Reset preview on open
+    setPreviewSubmission(null);
     setComplianceLoading(true);
     setError('');
     try {
@@ -116,12 +115,11 @@ export default function AdminDealersPage() {
 
   const handleCloseCompliance = () => {
     setIsComplianceModalOpen(false);
-    setTimeout(() => setPreviewSubmission(null), 300); // Wait for animation
+    setTimeout(() => setPreviewSubmission(null), 300);
   };
 
   const handleOpenPreview = (url: string, name: string) => {
     const lowerUrl = url.toLowerCase();
-    // Basic heuristic to guess file type from URL
     const isPdf = lowerUrl.includes('.pdf');
     const isImage = lowerUrl.match(/\.(jpeg|jpg|gif|png|webp)/);
     setPreviewSubmission({
@@ -144,7 +142,7 @@ export default function AdminDealersPage() {
 
   const handleOpenStatus = (dealer: any) => {
     setSelectedDealer(dealer);
-    setStatusFormData({ status: dealer.status === 'APPROVED' ? 'SUSPENDED_FULL' : 'APPROVED', reason: '' });
+    setStatusFormData({ status: dealer.status, reason: '' });
     setIsStatusModalOpen(true);
     setError('');
   };
@@ -290,6 +288,7 @@ export default function AdminDealersPage() {
                 <option value="">All Statuses</option>
                 <option value="PENDING">Pending</option>
                 <option value="APPROVED">Approved</option>
+                <option value="REJECTED">Rejected</option>
                 <option value="SUSPENDED_FULL">Suspended (Full)</option>
                 <option value="SUSPENDED_PURCHASES">Suspended (Purchases)</option>
               </select>
@@ -630,7 +629,9 @@ export default function AdminDealersPage() {
                 <div>
                   <label className="block text-sm font-bold text-slate-700 mb-1">New Status</label>
                   <select value={statusFormData.status} onChange={e => setStatusFormData({...statusFormData, status: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-sky-500 outline-none">
-                    <option value="APPROVED">APPROVED (Reactivate)</option>
+                    <option value="PENDING">PENDING</option>
+                    <option value="APPROVED">APPROVED</option>
+                    <option value="REJECTED">REJECTED</option>
                     <option value="SUSPENDED_PURCHASES">SUSPEND PURCHASES</option>
                     <option value="SUSPENDED_FULL">FULL SUSPENSION</option>
                   </select>
