@@ -149,11 +149,11 @@ export default function ProductDetailsPage() {
                 <div className="mb-8 p-4 bg-emerald-50 rounded-2xl border border-emerald-100">
                   <p className="text-xs font-bold text-emerald-700 uppercase tracking-wider mb-3">Available Bulk Discounts</p>
                   <div className="flex flex-wrap gap-2">
-                    {Object.entries(product.bulkPricing)
+                    {Object.entries(product.bulkPricing as Record<string, number>)
                       .sort((a,b) => Number(a[0]) - Number(b[0]))
                       .map(([qty, discount]) => (
                       <div key={qty} className="bg-white px-3 py-1.5 rounded-lg text-sm font-bold text-slate-700 shadow-sm border border-emerald-100">
-                        Buy {qty}+ <span className="text-emerald-600 ml-1">({discount}% OFF)</span>
+                        Buy {qty}+ <span className="text-emerald-600 ml-1">({Number(discount)}% OFF)</span>
                       </div>
                     ))}
                   </div>
