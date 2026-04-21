@@ -13,6 +13,8 @@ import {
 import { getCategories, browseProducts } from '@/api/public/catalog';
 import { getPaginatedArticles } from '@/api/public/articles';
 import { GoogleMap, useJsApiLoader, Marker, InfoWindow } from '@react-google-maps/api';
+import { getPaginatedFaqs } from '@/api/public/faq';
+import { submitContactRequest } from '@/api/public/contactRequest';
 
 const CustomStyles = () => (
   <style dangerouslySetInnerHTML={{__html: `
@@ -155,6 +157,55 @@ export default function HomePage() {
   const [isMarkerOpen, setIsMarkerOpen] = useState(false);
   const { isLoaded } = useJsApiLoader({ id: 'google-map-script', googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '' });
 
+  const [faqs, setFaqs] = useState<any[]>([]);
+  const [contactForm, setContactForm] = useState({ name: '', email: '', phone: '', company: '', inquiryType: '', message: '' });
+  const [isContactSubmitting, setIsContactSubmitting] = useState(false);
+  const [contactSuccess, setContactSuccess] = useState(false);
+  const [contactError, setContactError] = useState('');
+
+  useEffect(() => {
+    const fetchInitialData = async () => {
+      try {
+        const [catRes, prodRes, artRes, faqRes] = await Promise.all([
+          getCategories(),
+          browseProducts({ page: 1, limit: 12 }),
+          getPaginatedArticles({ page: 1, limit: 3 }),
+          getPaginatedFaqs({ limit: 4 })
+        ]);
+        const fetchedCats = Array.isArray(catRes.data) ? catRes.data : [];
+        setCategories(fetchedCats);
+        if (fetchedCats.length > 0) setActiveCat(fetchedCats[0].id);
+        
+        setTrendingProducts(prodRes.data?.data || []);
+        setArticles(artRes.data?.data || []);
+        setFaqs(faqRes.data?.data || []);
+      } catch (error) {} finally {
+        setLoadingInitial(false);
+      }
+    };
+    fetchInitialData();
+  }, []);
+
+  const handleContactChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    setContactForm(prev => ({ ...prev, [e.target.name]: e.target.value }));
+  };
+
+  const handleContactSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsContactSubmitting(true);
+    setContactError('');
+    try {
+      await submitContactRequest(contactForm);
+      setContactSuccess(true);
+      setContactForm({ name: '', email: '', phone: '', company: '', inquiryType: '', message: '' });
+      setTimeout(() => setContactSuccess(false), 5000);
+    } catch (err) {
+      setContactError('Failed to submit your request.');
+    } finally {
+      setIsContactSubmitting(false);
+    }
+  };
+  
   // Initial Data Fetch
   useEffect(() => {
     const fetchInitialData = async () => {
@@ -589,17 +640,23 @@ export default function HomePage() {
           </div>
         </div>
       </section>
-      {/* SUPPORT DIRECTORY (FAQ + CONTACT) */}
+{/* SUPPORT DIRECTORY (FAQ + CONTACT) */}
       <section className="py-32 bg-slate-50 border-b border-slate-200">
         <div className="max-w-7xl mx-auto px-4 grid grid-cols-1 lg:grid-cols-2 gap-20">
           <div>
             <span className="inline-block py-1.5 px-4 rounded-full bg-white text-slate-600 font-black tracking-widest uppercase text-[10px] mb-4 border border-slate-200 shadow-sm">Support Directory</span>
-            <h2 className="text-4xl md:text-5xl font-black text-slate-900 tracking-tight mb-8">Frequently Asked Questions</h2>
+            <div className="flex items-center justify-between mb-8">
+              <h2 className="text-4xl md:text-5xl font-black text-slate-900 tracking-tight">Frequently Asked Questions</h2>
+              <Link href="/faq" className="text-sm font-bold text-sky-600 hover:text-sky-700 flex items-center gap-1 group whitespace-nowrap">
+                View All <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+              </Link>
+            </div>
+            
             <div className="space-y-4">
-              {faqs.map((faq, idx) => (
+              {faqs.slice(0, 4).map((faq, idx) => (
                 <div key={idx} className={`border rounded-[1.5rem] overflow-hidden transition-all duration-300 ${openFaq === idx ? 'border-sky-500 bg-sky-50/30 shadow-md shadow-sky-900/5' : 'border-slate-200 bg-white hover:border-sky-200'}`}>
                   <button onClick={() => setOpenFaq(openFaq === idx ? null : idx)} className="w-full flex items-center justify-between p-6 text-left focus:outline-none group">
-                    <span className={`text-lg font-bold pr-8 transition-colors ${openFaq === idx ? 'text-sky-600' : 'text-slate-900'}`}>{faq.q}</span>
+                    <span className={`text-lg font-bold pr-8 transition-colors ${openFaq === idx ? 'text-sky-600' : 'text-slate-900'}`}>{faq.question}</span>
                     <span className={`flex-shrink-0 h-10 w-10 rounded-full flex items-center justify-center transition-all duration-300 ${openFaq === idx ? 'bg-sky-500 text-white rotate-180' : 'bg-slate-50 text-slate-400 group-hover:bg-sky-50'}`}>
                       {openFaq === idx ? <Minus className="h-5 w-5" /> : <Plus className="h-5 w-5" />}
                     </span>
@@ -608,7 +665,7 @@ export default function HomePage() {
                     {openFaq === idx && (
                       <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
                         <div className="px-6 pb-6 text-slate-600 font-medium leading-relaxed border-t border-slate-100 pt-4 mt-2 mx-2">
-                          {faq.a}
+                          {faq.answer}
                         </div>
                       </motion.div>
                     )}
@@ -621,32 +678,65 @@ export default function HomePage() {
           <div className="bg-white rounded-[3rem] p-10 md:p-14 text-slate-900 border border-slate-200 shadow-xl shadow-sky-900/5">
             <h3 className="text-3xl font-black mb-3 tracking-tight">Direct Connect Portal</h3>
             <p className="text-slate-500 font-medium mb-10 text-lg">Key account managers respond within 2 hours.</p>
-            <form className="space-y-6" onSubmit={(e) => e.preventDefault()}>
+            
+            {contactSuccess && (
+              <div className="mb-6 p-4 bg-emerald-50 border border-emerald-200 rounded-2xl flex items-center gap-3 text-emerald-700 font-bold">
+                <ShieldCheck className="h-6 w-6 shrink-0" />
+                Request submitted successfully.
+              </div>
+            )}
+            
+            {contactError && (
+              <div className="mb-6 p-4 bg-rose-50 border border-rose-200 rounded-2xl text-rose-700 font-bold">
+                {contactError}
+              </div>
+            )}
+
+            <form className="space-y-6" onSubmit={handleContactSubmit}>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                 <div>
-                  <label className="text-xs font-black text-slate-400 uppercase tracking-widest block mb-2">Business Name</label>
-                  <input type="text" placeholder="Apex Auto Traders" className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-sky-500 outline-none font-medium transition-shadow" />
+                  <label className="text-xs font-black text-slate-400 uppercase tracking-widest block mb-2">Business Name <span className="text-rose-500">*</span></label>
+                  <input required type="text" name="company" value={contactForm.company} onChange={handleContactChange} placeholder="Apex Auto Traders" className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-sky-500 outline-none font-medium transition-shadow" />
                 </div>
                 <div>
-                  <label className="text-xs font-black text-slate-400 uppercase tracking-widest block mb-2">Email Address</label>
-                  <input type="email" placeholder="procurement@company.com" className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-sky-500 outline-none font-medium transition-shadow" />
+                  <label className="text-xs font-black text-slate-400 uppercase tracking-widest block mb-2">Email Address <span className="text-rose-500">*</span></label>
+                  <input required type="email" name="email" value={contactForm.email} onChange={handleContactChange} placeholder="procurement@company.com" className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-sky-500 outline-none font-medium transition-shadow" />
                 </div>
               </div>
-              <div>
-                <label className="text-xs font-black text-slate-400 uppercase tracking-widest block mb-2">Inquiry Type</label>
-                <select defaultValue="" className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-sky-500 outline-none font-medium appearance-none transition-shadow">
-                  <option value="" disabled>Select requirement...</option>
-                  <option value="dealership">Dealership Application</option>
-                  <option value="bulk">Bulk Order</option>
-                  <option value="api">API Integration</option>
-                </select>
+              
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                <div>
+                  <label className="text-xs font-black text-slate-400 uppercase tracking-widest block mb-2">Full Name <span className="text-rose-500">*</span></label>
+                  <input required type="text" name="name" value={contactForm.name} onChange={handleContactChange} placeholder="John Doe" className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-sky-500 outline-none font-medium transition-shadow" />
+                </div>
+                <div>
+                  <label className="text-xs font-black text-slate-400 uppercase tracking-widest block mb-2">Phone Number</label>
+                  <input type="tel" name="phone" value={contactForm.phone} onChange={handleContactChange} placeholder="+91 98765 43210" className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-sky-500 outline-none font-medium transition-shadow" />
+                </div>
               </div>
+
               <div>
-                <label className="text-xs font-black text-slate-400 uppercase tracking-widest block mb-2">Message</label>
-                <textarea rows={4} placeholder="Outline your requirements..." className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-sky-500 outline-none resize-none font-medium transition-shadow"></textarea>
+                <label className="text-xs font-black text-slate-400 uppercase tracking-widest block mb-2">Inquiry Type <span className="text-rose-500">*</span></label>
+                <div className="relative">
+                  <select required name="inquiryType" value={contactForm.inquiryType} onChange={handleContactChange} className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-sky-500 outline-none font-medium appearance-none transition-shadow cursor-pointer">
+                    <option value="" disabled>Select requirement...</option>
+                    <option value="Dealership Application">Dealership Application</option>
+                    <option value="Bulk Order Request">Bulk Order Request</option>
+                    <option value="Technical Support">Technical Support</option>
+                    <option value="Logistics & Tracking">Logistics & Tracking</option>
+                    <option value="General Inquiry">General Inquiry</option>
+                  </select>
+                  <ChevronRight className="absolute right-5 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400 rotate-90 pointer-events-none" />
+                </div>
               </div>
-              <button type="submit" className="w-full bg-slate-900 hover:bg-sky-600 text-white font-black text-lg py-5 rounded-2xl flex items-center justify-center gap-2 transition-all mt-6 shadow-md hover:shadow-sky-500/25 border border-slate-800 hover:border-sky-500">
-                Submit Request <Send className="h-6 w-6 ml-1" />
+              
+              <div>
+                <label className="text-xs font-black text-slate-400 uppercase tracking-widest block mb-2">Message <span className="text-rose-500">*</span></label>
+                <textarea required rows={4} name="message" value={contactForm.message} onChange={handleContactChange} placeholder="Outline your requirements..." className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-sky-500 outline-none resize-none font-medium transition-shadow"></textarea>
+              </div>
+              
+              <button disabled={isContactSubmitting} type="submit" className="w-full bg-slate-900 hover:bg-sky-600 text-white font-black text-lg py-5 rounded-2xl flex items-center justify-center gap-2 transition-all mt-6 shadow-md hover:shadow-sky-500/25 border border-slate-800 hover:border-sky-500 disabled:opacity-70">
+                {isContactSubmitting ? 'Sending...' : 'Submit Request'} {!isContactSubmitting && <Send className="h-6 w-6 ml-1" />}
               </button>
             </form>
           </div>
