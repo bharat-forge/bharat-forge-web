@@ -111,7 +111,7 @@ export default function ProductDetailsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 relative pb-20 w-full">
+    <div className="min-h-screen bg-slate-50 relative pb-20 w-full pt-15">
       <div className="absolute inset-0 z-0 h-[40vh] w-full bg-[linear-gradient(to_right,#0ea5e915_1px,transparent_1px),linear-gradient(to_bottom,#0ea5e915_1px,transparent_1px)] bg-[size:2rem_2rem] [mask-image:linear-gradient(to_bottom,white,transparent)]" />
 
       <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 relative z-10 pt-12 space-y-8 flex flex-col flex-1 w-full">
