@@ -97,6 +97,19 @@ export default function ProductDetailsPage() {
   if (loading) return <div className="min-h-screen flex items-center justify-center bg-slate-50"><Loader2 className="h-8 w-8 animate-spin text-sky-500" /></div>;
   if (!product) return <div className="min-h-screen flex items-center justify-center bg-slate-50 text-xl font-bold text-slate-700">Product not found.</div>;
 
+  let currentPrice = product.basePrice;
+  if ((!user || user.role === 'USER') && product.bulkPricing && Object.keys(product.bulkPricing).length > 0) {
+    const tiers = Object.entries(product.bulkPricing)
+      .map(([q, d]) => ({ minQuantity: Number(q), discount: Number(d) }))
+      .sort((a, b) => b.minQuantity - a.minQuantity);
+    for (const tier of tiers) {
+      if (quantity >= tier.minQuantity) {
+        currentPrice = product.basePrice * (1 - tier.discount / 100);
+        break;
+      }
+    }
+  }
+
   return (
     <div className="min-h-screen bg-slate-50 relative pb-20 w-full">
       <div className="absolute inset-0 z-0 h-[40vh] w-full bg-[linear-gradient(to_right,#0ea5e915_1px,transparent_1px),linear-gradient(to_bottom,#0ea5e915_1px,transparent_1px)] bg-[size:2rem_2rem] [mask-image:linear-gradient(to_bottom,white,transparent)]" />
@@ -132,9 +145,32 @@ export default function ProductDetailsPage() {
                 <span className="text-xs font-bold text-slate-500">({product.reviewCount} verified reviews)</span>
               </div>
 
+              {(!user || user.role === 'USER') && product.bulkPricing && Object.keys(product.bulkPricing).length > 0 && (
+                <div className="mb-8 p-4 bg-emerald-50 rounded-2xl border border-emerald-100">
+                  <p className="text-xs font-bold text-emerald-700 uppercase tracking-wider mb-3">Available Bulk Discounts</p>
+                  <div className="flex flex-wrap gap-2">
+                    {Object.entries(product.bulkPricing)
+                      .sort((a,b) => Number(a[0]) - Number(b[0]))
+                      .map(([qty, discount]) => (
+                      <div key={qty} className="bg-white px-3 py-1.5 rounded-lg text-sm font-bold text-slate-700 shadow-sm border border-emerald-100">
+                        Buy {qty}+ <span className="text-emerald-600 ml-1">({discount}% OFF)</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <div className="mb-8 p-6 bg-slate-50 rounded-2xl border border-slate-100">
-                <p className="text-xs uppercase font-bold text-slate-400 mb-1 tracking-wider">Base Price</p>
-                <p className="text-4xl lg:text-5xl font-black text-sky-600 tracking-tight">₹{product.basePrice.toLocaleString()}</p>
+                <p className="text-xs uppercase font-bold text-slate-400 mb-1 tracking-wider">Price</p>
+                <div className="flex items-end gap-3">
+                  <p className="text-4xl lg:text-5xl font-black text-sky-600 tracking-tight">₹{currentPrice.toLocaleString()}</p>
+                  {currentPrice < product.basePrice && (
+                    <p className="text-xl font-bold text-slate-400 line-through mb-1">₹{product.basePrice.toLocaleString()}</p>
+                  )}
+                </div>
+                {currentPrice < product.basePrice && (
+                  <p className="text-xs font-bold text-emerald-600 mt-2">Bulk discount applied for {quantity} items!</p>
+                )}
               </div>
 
               <p className="text-slate-600 text-base font-medium leading-relaxed mb-10">{product.description}</p>
@@ -275,7 +311,6 @@ export default function ProductDetailsPage() {
           </motion.div>
         </div>
 
-        {/* Similar Products Recommendation Section */}
         {similarProducts.length > 0 && (
           <div className="w-full mt-12 border-t border-slate-200 pt-12">
             <div className="flex items-center justify-between mb-8">
@@ -296,7 +331,7 @@ export default function ProductDetailsPage() {
                       alt={simProduct.name} 
                       className="object-contain max-w-full max-h-full group-hover:scale-105 transition-transform duration-500"
                     />
-                    <div className="absolute top-4 right-4 bg-slate-50 px-3 py-1 rounded-full text-[10px] font-black text-slate-500 border border-slate-200 uppercase tracking-wide shadow-sm">
+                    <div className="absolute top-4 right-4 bg-slate-50 px-3 py-1 rounded-full text-[10px] font-bold text-slate-500 border border-slate-200 uppercase tracking-wide shadow-sm">
                       {simProduct.categoryName}
                     </div>
                   </div>

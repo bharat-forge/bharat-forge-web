@@ -161,6 +161,11 @@ export default function ShopPage() {
                         <div className="absolute top-4 right-4 bg-sky-50 px-3 py-1 rounded-full text-[10px] font-bold text-sky-600 uppercase tracking-wide">
                           {product.categoryName}
                         </div>
+                        {product.bulkPricing && Object.keys(product.bulkPricing).length > 0 && (
+                          <div className="absolute top-4 left-4 bg-emerald-50 px-2 py-1 rounded-md text-[10px] font-bold text-emerald-600 border border-emerald-100 shadow-sm">
+                            Bulk Offers
+                          </div>
+                        )}
                       </Link>
                       <div className="p-6 flex flex-col flex-1 border-t border-slate-50">
                         <p className="text-[10px] font-bold text-slate-400 mb-2 uppercase tracking-wider">SKU: {product.sku}</p>
