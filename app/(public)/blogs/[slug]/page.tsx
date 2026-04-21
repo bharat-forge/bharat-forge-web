@@ -9,6 +9,31 @@ import { castArticleVote, addArticleComment } from '@/api/user/articleInteractio
 import { Loader2, Calendar, Eye, ThumbsUp, ThumbsDown, MessageSquare, Send, User, ChevronLeft, BookOpen, ArrowRight } from 'lucide-react';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
+import ReactMarkdown from 'react-markdown';
+import rehypeRaw from 'rehype-raw';
+import remarkGfm from 'remark-gfm';
+
+// Helper function to cleverly intersperse images evenly throughout the markdown content
+const injectImagesIntoMarkdown = (content: string, images: string[]) => {
+  if (!images || images.length === 0) return content;
+  
+  const blocks = content.split('\n\n');
+  
+  if (blocks.length < 3) {
+    return content + '\n\n' + images.map(img => `![Article Illustration](${img})`).join('\n\n');
+  }
+
+  let injectedBlocks = [...blocks];
+  const numImages = Math.min(images.length, 3);
+  const interval = Math.floor(blocks.length / (numImages + 1));
+
+  for (let i = 0; i < numImages; i++) {
+    const insertIndex = Math.max(1, interval * (i + 1) + i); 
+    injectedBlocks.splice(insertIndex, 0, `![Article Illustration](${images[i]})`);
+  }
+
+  return injectedBlocks.join('\n\n');
+};
 
 export default function BlogDetailsPage() {
   const { slug } = useParams();
@@ -23,15 +48,10 @@ export default function BlogDetailsPage() {
 
   const fetchArticleAndRelated = async () => {
     try {
-      // 1. Fetch main article
       const res = await getArticleBySlug(slug as string);
       setData(res.data);
       
       const currentArticle = res.data.article;
-
-      // 2. Smart fetch for related articles
-      // Using the first meaningful word of the title to find similar context, 
-      // alongside trending articles as a fallback to guarantee a full grid.
       const searchKeyword = currentArticle.title.split(' ').find((w: string) => w.length > 3) || '';
       
       const [searchRes, trendRes] = await Promise.all([
@@ -39,7 +59,6 @@ export default function BlogDetailsPage() {
         getTrendingArticles()
       ]);
       
-      // Combine results, filter out the currently viewed article, and remove duplicates
       const combined = [...(searchRes.data?.data || []), ...(trendRes.data || [])];
       const uniqueRelated = Array.from(
         new Map(
@@ -49,13 +68,11 @@ export default function BlogDetailsPage() {
         ).values()
       );
       
-      // Keep only the top 3 best matches
       setRelatedArticles(uniqueRelated.slice(0, 3));
-
     } catch (error) {
       console.error("Failed to load article or related content", error);
     } finally {
-      setLoading(false);
+      setLoading(false); // CRITICAL: Ensures we stop loading even on error
     }
   };
 
@@ -71,7 +88,6 @@ export default function BlogDetailsPage() {
     setInteracting(true);
     try {
       await castArticleVote({ articleId: data.article.id, voteType });
-      // Refresh just the main article to update counts
       const res = await getArticleBySlug(slug as string);
       setData(res.data);
     } catch (err) {
@@ -103,6 +119,9 @@ export default function BlogDetailsPage() {
   if (!data?.article) return <div className="min-h-screen flex items-center justify-center bg-white text-xl font-bold text-slate-700">Article not found.</div>;
 
   const { article, comments } = data;
+  
+  // Inject images before passing to ReactMarkdown
+  const contentWithImages = injectImagesIntoMarkdown(article.content, article.supportingImages);
 
   return (
     <div className="min-h-screen bg-slate-50/50 pb-20">
@@ -145,8 +164,25 @@ export default function BlogDetailsPage() {
           animate={{ opacity: 1, y: 0 }} 
           className="bg-white rounded-[2.5rem] shadow-xl shadow-slate-200/60 border border-slate-100 p-8 md:p-14 mb-10"
         >
-          <article className="prose prose-lg prose-slate max-w-none prose-headings:font-black prose-headings:text-slate-900 prose-p:text-slate-600 prose-p:leading-relaxed prose-img:rounded-2xl">
-            <div dangerouslySetInnerHTML={{ __html: article.content }} />
+          <article className="prose prose-lg prose-slate max-w-none prose-headings:font-black prose-headings:text-slate-900 prose-p:text-slate-600 prose-p:leading-relaxed prose-a:text-sky-600">
+            <ReactMarkdown 
+              remarkPlugins={[remarkGfm]} 
+              rehypePlugins={[rehypeRaw]}
+              components={{
+                // Intercept the img tag to enforce fixed height, object-cover, and margins
+                img: ({node, ...props}) => (
+                  <span className="block w-full my-12">
+                    <img 
+                      {...props} 
+                      className="w-full h-[350px] md:h-[450px] object-cover rounded-3xl shadow-lg border border-slate-100"
+                      alt={props.alt || "Article illustration"}
+                    />
+                  </span>
+                )
+              }}
+            >
+              {contentWithImages}
+            </ReactMarkdown>
           </article>
 
           <div className="mt-16 pt-10 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-6">

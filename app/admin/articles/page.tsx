@@ -34,8 +34,11 @@ export default function AdminArticlesPage() {
   const [formData, setFormData] = useState({
     title: '', slug: '', content: '', status: 'DRAFT', categoryIds: [] as string[]
   });
+  
   const [thumbnailFile, setThumbnailFile] = useState<File | null>(null);
   const [supportingFiles, setSupportingFiles] = useState<File[]>([]);
+  const [thumbnailPreview, setThumbnailPreview] = useState<string | null>(null);
+  const [supportingPreviews, setSupportingPreviews] = useState<string[]>([]);
   
   const [formLoading, setFormLoading] = useState(false);
   const [error, setError] = useState('');
@@ -95,11 +98,32 @@ export default function AdminArticlesPage() {
         status: article.status || 'DRAFT',
         categoryIds: article.categories?.map((c: any) => c.categoryId) || []
       });
+      setThumbnailPreview(article.thumbnailUrl || null);
+      setSupportingPreviews(article.supportingImages || []);
     } else {
       setSelectedArticle(null);
       setFormData({ title: '', slug: '', content: '', status: 'DRAFT', categoryIds: [] });
+      setThumbnailPreview(null);
+      setSupportingPreviews([]);
     }
     setIsModalOpen(true);
+  };
+
+  const handleThumbnailFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setThumbnailFile(file);
+      setThumbnailPreview(URL.createObjectURL(file));
+    }
+  };
+
+  const handleSupportFiles = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      const files = Array.from(e.target.files).slice(0, 3);
+      setSupportingFiles(files);
+      const previews = files.map(file => URL.createObjectURL(file));
+      setSupportingPreviews(previews);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -108,30 +132,24 @@ export default function AdminArticlesPage() {
     setError('');
     
     try {
-      if (modalMode === 'CREATE') {
-        const data = new FormData();
-        data.append('title', formData.title);
-        data.append('slug', formData.slug);
-        data.append('content', formData.content);
-        data.append('status', formData.status);
-        data.append('categoryIds', JSON.stringify(formData.categoryIds));
-        
-        if (thumbnailFile) {
-          data.append('thumbnail', thumbnailFile);
-        }
-        supportingFiles.forEach(file => {
-          data.append('supportingImages', file);
-        });
+      const data = new FormData();
+      data.append('title', formData.title);
+      data.append('slug', formData.slug);
+      data.append('content', formData.content);
+      data.append('status', formData.status);
+      data.append('categoryIds', JSON.stringify(formData.categoryIds));
+      
+      if (thumbnailFile) {
+        data.append('thumbnail', thumbnailFile);
+      }
+      supportingFiles.forEach(file => {
+        data.append('supportingImages', file);
+      });
 
+      if (modalMode === 'CREATE') {
         await createArticle(data);
       } else {
-        await updateArticle(selectedArticle.id, {
-          title: formData.title,
-          slug: formData.slug,
-          content: formData.content,
-          status: formData.status,
-          categoryIds: formData.categoryIds
-        });
+        await updateArticle(selectedArticle.id, data);
       }
       setIsModalOpen(false);
       fetchArticles(meta.currentPage);
@@ -139,13 +157,6 @@ export default function AdminArticlesPage() {
       setError(err.response?.data?.message || 'An error occurred while saving the article');
     } finally {
       setFormLoading(false);
-    }
-  };
-
-  const handleSupportFiles = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
-      const files = Array.from(e.target.files).slice(0, 3);
-      setSupportingFiles(files);
     }
   };
 
@@ -476,34 +487,49 @@ export default function AdminArticlesPage() {
                     </div>
                   </div>
 
-                  {modalMode === 'CREATE' && (
-                    <div className="bg-slate-50 rounded-2xl p-6 border border-slate-200 space-y-6">
-                      <h3 className="text-sm font-black text-slate-900 uppercase tracking-wider">Media Uploads</h3>
-                      
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div>
-                          <label className="block text-sm font-bold text-slate-700 mb-2">Featured Thumbnail *</label>
-                          <input 
-                            required 
-                            type="file" 
-                            accept="image/*" 
-                            onChange={e => setThumbnailFile(e.target.files?.[0] || null)}
-                            className="w-full text-sm text-slate-500 file:mr-4 file:py-2.5 file:px-6 file:rounded-full file:border-0 file:text-sm file:font-bold file:bg-sky-100 file:text-sky-700 hover:file:bg-sky-200 transition-colors cursor-pointer"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-bold text-slate-700 mb-2">Supporting Images (Max 3)</label>
-                          <input 
-                            multiple 
-                            type="file" 
-                            accept="image/*" 
-                            onChange={handleSupportFiles}
-                            className="w-full text-sm text-slate-500 file:mr-4 file:py-2.5 file:px-6 file:rounded-full file:border-0 file:text-sm file:font-bold file:bg-slate-200 file:text-slate-700 hover:file:bg-slate-300 transition-colors cursor-pointer"
-                          />
-                        </div>
+                  {/* MEDIA UPLOADS SECTIONS ALLOWED IN BOTH EDIT AND CREATE */}
+                  <div className="bg-slate-50 rounded-2xl p-6 border border-slate-200 space-y-6">
+                    <h3 className="text-sm font-black text-slate-900 uppercase tracking-wider">Media Uploads</h3>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div>
+                        <label className="block text-sm font-bold text-slate-700 mb-2">
+                          Featured Thumbnail {modalMode === 'CREATE' ? '*' : ''}
+                        </label>
+                        <input 
+                          required={modalMode === 'CREATE'} 
+                          type="file" 
+                          accept="image/*" 
+                          onChange={handleThumbnailFile}
+                          className="w-full text-sm text-slate-500 file:mr-4 file:py-2.5 file:px-6 file:rounded-full file:border-0 file:text-sm file:font-bold file:bg-sky-100 file:text-sky-700 hover:file:bg-sky-200 transition-colors cursor-pointer"
+                        />
+                        {thumbnailPreview && (
+                          <div className="mt-4 relative w-full h-32 rounded-xl overflow-hidden border border-slate-200 shadow-inner">
+                            <img src={thumbnailPreview} alt="Thumbnail preview" className="w-full h-full object-cover" />
+                          </div>
+                        )}
+                      </div>
+                      <div>
+                        <label className="block text-sm font-bold text-slate-700 mb-2">Supporting Images (Max 3)</label>
+                        <input 
+                          multiple 
+                          type="file" 
+                          accept="image/*" 
+                          onChange={handleSupportFiles}
+                          className="w-full text-sm text-slate-500 file:mr-4 file:py-2.5 file:px-6 file:rounded-full file:border-0 file:text-sm file:font-bold file:bg-slate-200 file:text-slate-700 hover:file:bg-slate-300 transition-colors cursor-pointer"
+                        />
+                        {supportingPreviews.length > 0 && (
+                          <div className="mt-4 grid grid-cols-3 gap-2">
+                            {supportingPreviews.map((src, i) => (
+                              <div key={i} className="relative aspect-square rounded-xl overflow-hidden border border-slate-200 shadow-inner">
+                                <img src={src} alt={`Preview ${i + 1}`} className="w-full h-full object-cover" />
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     </div>
-                  )}
+                  </div>
                 </form>
               </div>
 
