@@ -1,12 +1,12 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { browseProducts, getCategories } from '@/api/public/catalog';
 import { requestDealership } from '@/api/dealer/requests';
 import { addToCart } from '@/api/shared/cart';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/store/store';
-import { Search, SlidersHorizontal, Loader2, Star, PackageX, ShoppingCart, ShieldCheck, Plus, Check } from 'lucide-react';
+import { Search, SlidersHorizontal, Loader2, Star, PackageX, ShoppingCart, ShieldCheck, Plus, Check, Clock } from 'lucide-react';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
 
@@ -50,10 +50,10 @@ export default function DealerShopPage() {
     return () => clearTimeout(handler);
   }, [search]);
 
-  const fetchProducts = async () => {
+  const fetchProducts = useCallback(async () => {
     setLoading(true);
     try {
-      const params: any = { page, limit: 15 }; // Increased limit to fill the denser grid
+      const params: any = { page, limit: 15 };
       if (debouncedSearch) params.search = debouncedSearch;
       if (minPrice) params.minPrice = minPrice;
       if (maxPrice) params.maxPrice = maxPrice;
@@ -61,17 +61,18 @@ export default function DealerShopPage() {
       if (minRating > 0) params.minRating = minRating;
 
       const { data } = await browseProducts(params);
-      setProducts(data.data);
-      setTotalPages(data.meta.totalPages);
+      setProducts(data.data || []);
+      setTotalPages(data.meta?.totalPages || 1);
     } catch (error) {
+      setProducts([]);
     } finally {
       setLoading(false);
     }
-  };
+  }, [page, debouncedSearch, minPrice, maxPrice, categoryId, minRating]);
 
   useEffect(() => {
     fetchProducts();
-  }, [page, debouncedSearch, minPrice, maxPrice, categoryId, minRating]);
+  }, [fetchProducts]);
 
   const handleAddToCart = async (product: any) => {
     try {
@@ -96,6 +97,7 @@ export default function DealerShopPage() {
       setSuccessMsg('');
       await requestDealership({ productId });
       setSuccessMsg('Dealership request submitted successfully!');
+      setProducts(prev => prev.map(p => p.id === productId ? { ...p, dealershipStatus: 'PENDING' } : p));
       setTimeout(() => setSuccessMsg(''), 3000);
     } catch (err: any) {
       setErrorMsg(err.response?.data?.message || 'Failed to request dealership');
@@ -203,76 +205,102 @@ export default function DealerShopPage() {
               </div>
             ) : (
               <>
-                {/* Fixed the grid to be denser: up to 5 columns on ultra wide screens */}
                 <motion.div 
                   initial="hidden" 
                   animate="visible" 
                   variants={{ visible: { transition: { staggerChildren: 0.05 } } }}
                   className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6 w-full"
                 >
-                  {products.map((product) => (
-                    <motion.div 
-                      key={product.id}
-                      variants={{ hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0 } }}
-                      className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden hover:shadow-lg transition-all group flex flex-col h-full"
-                    >
-                      {/* Reduced the image height from h-48/aspect-square to h-40 */}
-                      <Link href={`/dealer/products/${product.id}`} className="block relative h-40 bg-slate-50 overflow-hidden p-4 border-b border-slate-100 flex-shrink-0">
-                        <img 
-                          src={product.images?.[0] || '/logo.svg'} 
-                          alt={product.name} 
-                          className="object-contain w-full h-full group-hover:scale-105 transition-transform duration-500 mix-blend-multiply"
-                        />
-                        <div className="absolute top-2 right-2 bg-white px-2 py-0.5 rounded-full text-[9px] font-black text-slate-500 border border-slate-200 uppercase tracking-wide shadow-sm">
-                          {product.categoryName}
-                        </div>
-                      </Link>
-                      <div className="p-4 flex flex-col flex-1 bg-white">
-                        <p className="text-[10px] font-bold text-slate-400 mb-1 uppercase tracking-wider truncate">SKU: {product.sku}</p>
-                        <Link href={`/dealer/products/${product.id}`}>
-                          <h3 className="text-sm font-bold text-slate-900 leading-tight mb-2 hover:text-sky-600 transition-colors line-clamp-2">
-                            {product.name}
-                          </h3>
+                  {products.map((product) => {
+                    const isApproved = product.dealershipStatus === 'APPROVED';
+                    const isPending = product.dealershipStatus === 'PENDING';
+                    const hasDiscount = isApproved && product.discountPercentage > 0;
+                    const finalPrice = hasDiscount ? product.basePrice * (1 - product.discountPercentage / 100) : product.basePrice;
+                    
+                    return (
+                      <motion.div 
+                        key={product.id}
+                        variants={{ hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0 } }}
+                        className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden hover:shadow-lg transition-all group flex flex-col h-full"
+                      >
+                        <Link href={`/dealer/products/${product.id}`} className="block relative h-40 bg-slate-50 overflow-hidden p-4 border-b border-slate-100 flex-shrink-0">
+                          <img 
+                            src={product.images?.[0] || '/logo.svg'} 
+                            alt={product.name} 
+                            className="object-contain w-full h-full group-hover:scale-105 transition-transform duration-500 mix-blend-multiply"
+                          />
+                          <div className="absolute top-2 right-2 bg-white px-2 py-0.5 rounded-full text-[9px] font-black text-slate-500 border border-slate-200 uppercase tracking-wide shadow-sm">
+                            {product.categoryName}
+                          </div>
+                          {hasDiscount && (
+                            <div className="absolute bottom-2 left-2 bg-emerald-500 text-white px-2 py-1 rounded text-[10px] font-black uppercase tracking-wider shadow-sm">
+                              {product.discountPercentage}% OFF
+                            </div>
+                          )}
                         </Link>
-                        <div className="flex items-center gap-1 mb-3">
-                          <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
-                          <span className="text-xs font-bold text-slate-700">{product.averageRating.toFixed(1)}</span>
-                        </div>
-                        <div className="mt-auto space-y-3">
-                          <div className="flex items-end justify-between">
-                            <div>
-                              <p className="text-[9px] uppercase font-bold text-slate-400 tracking-wider">Base Price</p>
-                              <p className="text-xl font-black text-sky-600 tracking-tight">₹{product.basePrice.toLocaleString()}</p>
+                        <div className="p-4 flex flex-col flex-1 bg-white">
+                          <p className="text-[10px] font-bold text-slate-400 mb-1 uppercase tracking-wider truncate">SKU: {product.sku}</p>
+                          <Link href={`/dealer/products/${product.id}`}>
+                            <h3 className="text-sm font-bold text-slate-900 leading-tight mb-2 hover:text-sky-600 transition-colors line-clamp-2">
+                              {product.name}
+                            </h3>
+                          </Link>
+                          <div className="flex items-center gap-1 mb-3">
+                            <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
+                            <span className="text-xs font-bold text-slate-700">{product.averageRating?.toFixed(1) || '0.0'}</span>
+                          </div>
+                          <div className="mt-auto space-y-3">
+                            <div className="flex items-end justify-between">
+                              <div>
+                                <p className="text-[9px] uppercase font-bold text-slate-400 tracking-wider">Base Price</p>
+                                <div className="flex items-baseline gap-2">
+                                  <p className="text-xl font-black text-sky-600 tracking-tight">₹{finalPrice.toLocaleString()}</p>
+                                  {hasDiscount && (
+                                    <p className="text-xs font-bold text-slate-400 line-through">₹{product.basePrice.toLocaleString()}</p>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                            <div className="flex gap-2">
+                              <button 
+                                onClick={() => handleAddToCart(product)}
+                                disabled={addingId === product.id}
+                                className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-900 py-2 rounded-lg text-xs font-bold transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50"
+                              >
+                                {addingId === product.id ? (
+                                  <div className="w-3.5 h-3.5 border-2 border-slate-900 border-t-transparent rounded-full animate-spin"></div>
+                                ) : (
+                                  <><Plus className="w-3.5 h-3.5" /> Cart</>
+                                )}
+                              </button>
+
+                              {isApproved ? (
+                                <button disabled className="flex-1 bg-emerald-50 text-emerald-600 py-2 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 cursor-default">
+                                  <ShieldCheck className="w-3.5 h-3.5" /> Approved
+                                </button>
+                              ) : isPending ? (
+                                <button disabled className="flex-1 bg-amber-50 text-amber-600 py-2 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 cursor-default">
+                                  <Clock className="w-3.5 h-3.5" /> Pending
+                                </button>
+                              ) : (
+                                <button 
+                                  onClick={() => handleRequestDealership(product.id)}
+                                  disabled={requestingId === product.id}
+                                  className="flex-1 bg-slate-900 hover:bg-slate-800 text-white py-2 rounded-lg text-xs font-bold transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50"
+                                >
+                                  {requestingId === product.id ? (
+                                    <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                                  ) : (
+                                    <><ShieldCheck className="w-3.5 h-3.5" /> Request</>
+                                  )}
+                                </button>
+                              )}
                             </div>
                           </div>
-                          <div className="flex gap-2">
-                            <button 
-                              onClick={() => handleAddToCart(product)}
-                              disabled={addingId === product.id}
-                              className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-900 py-2 rounded-lg text-xs font-bold transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50"
-                            >
-                              {addingId === product.id ? (
-                                <div className="w-3.5 h-3.5 border-2 border-slate-900 border-t-transparent rounded-full animate-spin"></div>
-                              ) : (
-                                <><Plus className="w-3.5 h-3.5" /> Cart</>
-                              )}
-                            </button>
-                            <button 
-                              onClick={() => handleRequestDealership(product.id)}
-                              disabled={requestingId === product.id}
-                              className="flex-1 bg-slate-900 hover:bg-slate-800 text-white py-2 rounded-lg text-xs font-bold transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50"
-                            >
-                              {requestingId === product.id ? (
-                                <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                              ) : (
-                                <><ShieldCheck className="w-3.5 h-3.5" /> Request</>
-                              )}
-                            </button>
-                          </div>
                         </div>
-                      </div>
-                    </motion.div>
-                  ))}
+                      </motion.div>
+                    );
+                  })}
                 </motion.div>
 
                 {totalPages > 1 && (

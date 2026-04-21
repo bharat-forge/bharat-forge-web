@@ -267,7 +267,7 @@ export default function CheckoutPage() {
             <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm sticky top-28">
               <h3 className="text-xl font-bold text-slate-900 mb-6">Order Summary</h3>
               
-              <div className="space-y-4 mb-6 max-h-[40vh] overflow-y-auto pr-2">
+              <div className="space-y-4 mb-6 max-h-[40vh] overflow-y-auto pr-2 pt-3">
                 {items.map((item) => (
                   <div key={item.id} className="flex gap-4 items-center">
                     <div className="w-16 h-16 bg-slate-50 rounded-xl p-2 relative flex-shrink-0 border border-slate-100">

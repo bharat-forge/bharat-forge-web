@@ -7,7 +7,7 @@ import { RootState } from '@/store/store';
 import { getProductDetails, getProductSuggestions } from '@/api/public/catalog';
 import { addToCart } from '@/api/shared/cart';
 import { requestDealership } from '@/api/dealer/requests';
-import { Loader2, Star, ShoppingCart, ShieldCheck, MessageSquareText, ChevronLeft, Plus } from 'lucide-react';
+import { Loader2, Star, ShoppingCart, ShieldCheck, MessageSquareText, ChevronLeft, Plus, Clock } from 'lucide-react';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
 
@@ -28,11 +28,9 @@ export default function DealerProductDetailsPage() {
 
   const fetchProductAndSimilar = async () => {
     try {
-      // Fetch main product details
       const { data } = await getProductDetails(id as string);
       setProduct(data);
       
-      // Fetch similar products via the new dedicated endpoint
       const simRes = await getProductSuggestions(id as string);
       setSimilarProducts(simRes.data || []);
       
@@ -71,6 +69,7 @@ export default function DealerProductDetailsPage() {
       setDealershipMsg('');
       await requestDealership({ productId: product.id });
       setDealershipMsg('Dealership request submitted!');
+      setProduct((prev: any) => ({ ...prev, dealershipStatus: 'PENDING' }));
       setTimeout(() => setDealershipMsg(''), 3000);
     } catch (err: any) {
       setDealershipMsg(err.response?.data?.message || 'Failed to request');
@@ -83,6 +82,11 @@ export default function DealerProductDetailsPage() {
   if (loading) return <div className="min-h-screen flex items-center justify-center bg-transparent"><Loader2 className="h-8 w-8 animate-spin text-sky-500" /></div>;
   if (!product) return <div className="min-h-screen flex items-center justify-center bg-transparent text-xl font-bold text-slate-700">Product not found.</div>;
 
+  const isApproved = product.dealershipStatus === 'APPROVED';
+  const isPending = product.dealershipStatus === 'PENDING';
+  const hasDiscount = isApproved && product.discountPercentage > 0;
+  const finalPrice = hasDiscount ? product.basePrice * (1 - product.discountPercentage / 100) : product.basePrice;
+
   return (
     <div className="w-full max-w-[1600px] mx-auto space-y-8 flex flex-col flex-1 pb-20">
       <div className="relative z-10 w-full">
@@ -93,6 +97,11 @@ export default function DealerProductDetailsPage() {
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden mb-8 w-full">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-0 w-full">
             <div className="bg-slate-50 min-h-[400px] lg:min-h-[600px] p-12 flex items-center justify-center relative border-b lg:border-b-0 lg:border-r border-slate-100 w-full">
+              {hasDiscount && (
+                <div className="absolute top-6 left-6 bg-emerald-500 text-white px-3 py-1.5 rounded-lg text-sm font-black uppercase tracking-wider shadow-sm z-10">
+                  {product.discountPercentage}% OFF
+                </div>
+              )}
               <img src={product.images?.[0] || '/logo.svg'} alt={product.name} className="max-w-full max-h-full object-contain drop-shadow-2xl mix-blend-multiply" />
             </div>
 
@@ -118,7 +127,15 @@ export default function DealerProductDetailsPage() {
 
               <div className="mb-8 p-6 bg-slate-50 rounded-2xl border border-slate-100">
                 <p className="text-xs uppercase font-bold text-slate-400 mb-1 tracking-wider">Wholesale Base Price</p>
-                <p className="text-4xl lg:text-5xl font-black text-sky-600 tracking-tight">₹{product.basePrice.toLocaleString()}</p>
+                <div className="flex items-end gap-3">
+                  <p className="text-4xl lg:text-5xl font-black text-sky-600 tracking-tight">₹{finalPrice.toLocaleString()}</p>
+                  {hasDiscount && (
+                    <p className="text-xl font-bold text-slate-400 line-through mb-1">₹{product.basePrice.toLocaleString()}</p>
+                  )}
+                </div>
+                {hasDiscount && (
+                  <p className="text-xs font-bold text-emerald-600 mt-2">You save ₹{(product.basePrice - finalPrice).toLocaleString()} with your approved dealership.</p>
+                )}
               </div>
 
               <p className="text-slate-600 text-base font-medium leading-relaxed mb-10">{product.description}</p>
@@ -136,13 +153,24 @@ export default function DealerProductDetailsPage() {
                   {addingToCart ? <Loader2 className="animate-spin h-5 w-5" /> : <ShoppingCart className="h-5 w-5" />}
                   Add to Cart
                 </button>
-                <button 
-                  onClick={handleRequestDealership} disabled={requestingId === product.id}
-                  className="flex-1 flex justify-center items-center gap-2 py-4 px-8 rounded-xl font-bold text-white bg-slate-900 hover:bg-slate-800 transition-colors disabled:opacity-50 shadow-md shadow-slate-900/20"
-                >
-                  {requestingId === product.id ? <Loader2 className="animate-spin h-5 w-5" /> : <ShieldCheck className="h-5 w-5" />}
-                  Request Dealership
-                </button>
+                
+                {isApproved ? (
+                  <div className="flex-1 flex justify-center items-center gap-2 py-4 px-8 rounded-xl font-bold text-emerald-600 bg-emerald-50 border border-emerald-200 cursor-default">
+                    <ShieldCheck className="h-5 w-5" /> Dealership Approved
+                  </div>
+                ) : isPending ? (
+                  <div className="flex-1 flex justify-center items-center gap-2 py-4 px-8 rounded-xl font-bold text-amber-600 bg-amber-50 border border-amber-200 cursor-default">
+                    <Clock className="h-5 w-5" /> Request Pending
+                  </div>
+                ) : (
+                  <button 
+                    onClick={handleRequestDealership} disabled={requestingId === product.id}
+                    className="flex-1 flex justify-center items-center gap-2 py-4 px-8 rounded-xl font-bold text-white bg-slate-900 hover:bg-slate-800 transition-colors disabled:opacity-50 shadow-md shadow-slate-900/20"
+                  >
+                    {requestingId === product.id ? <Loader2 className="animate-spin h-5 w-5" /> : <ShieldCheck className="h-5 w-5" />}
+                    Request Dealership
+                  </button>
+                )}
               </div>
               
               {cartMsg && <p className={`text-sm font-bold mt-2 p-3 rounded-lg border ${cartMsg.includes('success') ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-rose-50 text-rose-700 border-rose-100'}`}>{cartMsg}</p>}
@@ -211,7 +239,6 @@ export default function DealerProductDetailsPage() {
           </motion.div>
         </div>
 
-        {/* Similar Products Recommendation Section */}
         {similarProducts.length > 0 && (
           <div className="w-full mt-8">
             <div className="flex items-center justify-between mb-6">
@@ -220,36 +247,52 @@ export default function DealerProductDetailsPage() {
             </div>
             
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 w-full">
-              {similarProducts.map((simProduct) => (
-                <Link 
-                  href={`/dealer/products/${simProduct.id}`} 
-                  key={simProduct.id}
-                  className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden hover:shadow-lg transition-all group flex flex-col h-full"
-                >
-                  <div className="relative h-48 bg-slate-50 overflow-hidden p-4 border-b border-slate-100 flex-shrink-0 flex items-center justify-center">
-                    <img 
-                      src={simProduct.images?.[0] || '/logo.svg'} 
-                      alt={simProduct.name} 
-                      className="object-contain max-w-full max-h-full group-hover:scale-105 transition-transform duration-500 mix-blend-multiply"
-                    />
-                    <div className="absolute top-3 right-3 bg-white px-2 py-0.5 rounded-full text-[9px] font-black text-slate-500 border border-slate-200 uppercase tracking-wide shadow-sm">
-                      {simProduct.categoryName}
-                    </div>
-                  </div>
-                  <div className="p-5 flex flex-col flex-1 bg-white">
-                    <p className="text-[10px] font-bold text-slate-400 mb-1 uppercase tracking-wider">SKU: {simProduct.sku}</p>
-                    <h3 className="text-sm font-bold text-slate-900 leading-tight mb-2 group-hover:text-sky-600 transition-colors line-clamp-2">
-                      {simProduct.name}
-                    </h3>
-                    <div className="mt-auto flex items-end justify-between pt-4 border-t border-slate-50">
-                      <p className="text-lg font-black text-sky-600">₹{simProduct.basePrice.toLocaleString()}</p>
-                      <div className="w-8 h-8 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center group-hover:bg-sky-500 group-hover:text-white transition-colors">
-                        <Plus className="w-4 h-4" />
+              {similarProducts.map((simProduct) => {
+                const simIsApproved = simProduct.dealershipStatus === 'APPROVED';
+                const simHasDiscount = simIsApproved && simProduct.discountPercentage > 0;
+                const simFinalPrice = simHasDiscount ? simProduct.basePrice * (1 - simProduct.discountPercentage / 100) : simProduct.basePrice;
+
+                return (
+                  <Link 
+                    href={`/dealer/products/${simProduct.id}`} 
+                    key={simProduct.id}
+                    className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden hover:shadow-lg transition-all group flex flex-col h-full"
+                  >
+                    <div className="relative h-48 bg-slate-50 overflow-hidden p-4 border-b border-slate-100 flex-shrink-0 flex items-center justify-center">
+                      {simHasDiscount && (
+                        <div className="absolute top-2 left-2 bg-emerald-500 text-white px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider shadow-sm z-10">
+                          {simProduct.discountPercentage}% OFF
+                        </div>
+                      )}
+                      <img 
+                        src={simProduct.images?.[0] || '/logo.svg'} 
+                        alt={simProduct.name} 
+                        className="object-contain max-w-full max-h-full group-hover:scale-105 transition-transform duration-500 mix-blend-multiply"
+                      />
+                      <div className="absolute top-3 right-3 bg-white px-2 py-0.5 rounded-full text-[9px] font-black text-slate-500 border border-slate-200 uppercase tracking-wide shadow-sm">
+                        {simProduct.categoryName}
                       </div>
                     </div>
-                  </div>
-                </Link>
-              ))}
+                    <div className="p-5 flex flex-col flex-1 bg-white">
+                      <p className="text-[10px] font-bold text-slate-400 mb-1 uppercase tracking-wider">SKU: {simProduct.sku}</p>
+                      <h3 className="text-sm font-bold text-slate-900 leading-tight mb-2 group-hover:text-sky-600 transition-colors line-clamp-2">
+                        {simProduct.name}
+                      </h3>
+                      <div className="mt-auto flex items-end justify-between pt-4 border-t border-slate-50">
+                        <div>
+                          <p className="text-lg font-black text-sky-600">₹{simFinalPrice.toLocaleString()}</p>
+                          {simHasDiscount && (
+                            <p className="text-[10px] font-bold text-slate-400 line-through">₹{simProduct.basePrice.toLocaleString()}</p>
+                          )}
+                        </div>
+                        <div className="w-8 h-8 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center group-hover:bg-sky-500 group-hover:text-white transition-colors">
+                          <Plus className="w-4 h-4" />
+                        </div>
+                      </div>
+                    </div>
+                  </Link>
+                );
+              })}
             </div>
           </div>
         )}

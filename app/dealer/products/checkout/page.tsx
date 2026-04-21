@@ -55,6 +55,9 @@ export default function DealerCheckoutPage() {
   }, [isAuthenticated, items, router]);
 
   const subtotal = items.reduce((acc, item) => acc + ((item.price || 0) * item.quantity), 0);
+  const totalBasePrice = items.reduce((acc, item) => acc + ((item.basePrice || item.price || 0) * item.quantity), 0);
+  const totalSavings = totalBasePrice - subtotal;
+  
   const tax = subtotal * 0.18;
   const total = subtotal + tax;
 
@@ -200,7 +203,7 @@ export default function DealerCheckoutPage() {
         <div className="lg:col-span-5">
           <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm sticky top-8">
             <h3 className="text-xl font-bold text-slate-900 mb-6">Order Summary</h3>
-            <div className="space-y-4 mb-6 max-h-[40vh] overflow-y-auto pr-2">
+            <div className="space-y-4 mb-6 max-h-[40vh] overflow-y-auto pr-2 pt-3">
               {items.map((item) => (
                 <div key={item.id} className="flex gap-4 items-center">
                   <div className="w-16 h-16 bg-slate-50 rounded-xl p-2 relative flex-shrink-0 border border-slate-100">
@@ -209,7 +212,14 @@ export default function DealerCheckoutPage() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-bold text-slate-900 truncate">{item.name}</p>
-                    <p className="text-xs font-bold text-slate-400">SKU: {item.sku}</p>
+                    <div className="flex items-center gap-2">
+                      <p className="text-xs font-bold text-slate-400">SKU: {item.sku}</p>
+                      {item.discountPercentage && item.discountPercentage > 0 && (
+                        <span className="bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded text-[8px] font-black uppercase">
+                          {item.discountPercentage}% Off
+                        </span>
+                      )}
+                    </div>
                   </div>
                   <div className="text-sm font-black text-slate-900">₹{((item.price || 0) * item.quantity).toLocaleString()}</div>
                 </div>
@@ -220,6 +230,12 @@ export default function DealerCheckoutPage() {
               <div className="flex items-center justify-between text-sm font-medium text-slate-600">
                 <span>Subtotal</span><span className="font-bold text-slate-900">₹{subtotal.toLocaleString()}</span>
               </div>
+              {totalSavings > 0 && (
+                <div className="flex items-center justify-between text-emerald-600">
+                  <span className="font-bold">Dealership Savings</span>
+                  <span className="font-bold">-₹{totalSavings.toLocaleString()}</span>
+                </div>
+              )}
               <div className="flex items-center justify-between text-sm font-medium text-slate-600">
                 <span>Tax (GST 18%)</span><span className="font-bold text-slate-900">₹{tax.toLocaleString()}</span>
               </div>

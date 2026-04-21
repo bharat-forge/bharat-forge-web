@@ -81,6 +81,8 @@ export default function DealerCartPage() {
   };
 
   const subtotal = items.reduce((acc, item) => acc + ((item.price || 0) * item.quantity), 0);
+  const totalBasePrice = items.reduce((acc, item) => acc + ((item.basePrice || item.price || 0) * item.quantity), 0);
+  const totalSavings = totalBasePrice - subtotal;
 
   if (isLoading && items.length === 0) {
     return <div className="min-h-screen bg-transparent flex items-center justify-center"><div className="w-16 h-16 border-4 border-slate-200 border-t-sky-500 rounded-full animate-spin"></div></div>;
@@ -117,29 +119,43 @@ export default function DealerCartPage() {
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           <div className="lg:col-span-8 space-y-4">
-            {items.map((item) => (
-              <div key={item.id} className={`bg-white p-6 rounded-3xl border border-slate-200 flex flex-col sm:flex-row items-center gap-6 shadow-sm transition-opacity ${updatingId === item.id ? 'opacity-50 pointer-events-none' : ''}`}>
-                <div className="w-32 h-32 bg-slate-50 rounded-2xl p-4 relative flex-shrink-0 border border-slate-100">
-                  {item.images?.[0] ? <Image src={item.images[0]} alt={item.name} fill className="object-contain p-2" /> : <Package className="w-full h-full text-slate-300 p-4" />}
-                </div>
-                
-                <div className="flex-1 text-center sm:text-left">
-                  <div className="text-xs font-bold text-slate-400 mb-1 uppercase">SKU: {item.sku}</div>
-                  <h3 className="text-lg font-bold text-slate-900 mb-2">{item.name}</h3>
-                  <div className="text-sky-600 font-black">₹{(item.price || 0).toLocaleString()}</div>
-                </div>
+            {items.map((item) => {
+              const hasDiscount = item.discountPercentage && item.discountPercentage > 0;
 
-                <div className="flex flex-col items-center sm:items-end gap-4 sm:border-l border-slate-100 sm:pl-6">
-                  <div className="flex items-center gap-3 bg-slate-50 border border-slate-200 rounded-xl px-2 py-1">
-                    <button onClick={() => handleUpdateQuantity(item.id, item.quantity - 1)} className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-sky-500 hover:bg-white rounded-lg transition-colors"><Minus className="w-4 h-4" /></button>
-                    <span className="text-sm font-bold text-slate-700 w-6 text-center">{item.quantity}</span>
-                    <button onClick={() => handleUpdateQuantity(item.id, item.quantity + 1)} className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-sky-500 hover:bg-white rounded-lg transition-colors"><Plus className="w-4 h-4" /></button>
+              return (
+                <div key={item.id} className={`bg-white p-6 rounded-3xl border border-slate-200 flex flex-col sm:flex-row items-center gap-6 shadow-sm transition-opacity ${updatingId === item.id ? 'opacity-50 pointer-events-none' : ''}`}>
+                  <div className="w-32 h-32 bg-slate-50 rounded-2xl p-4 relative flex-shrink-0 border border-slate-100">
+                    {hasDiscount && (
+                      <div className="absolute -top-2 -left-2 bg-emerald-500 text-white px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider shadow-sm z-10">
+                        {item.discountPercentage}% OFF
+                      </div>
+                    )}
+                    {item.images?.[0] ? <Image src={item.images[0]} alt={item.name} fill className="object-contain p-2" /> : <Package className="w-full h-full text-slate-300 p-4" />}
                   </div>
-                  <div className="text-lg font-black text-slate-900">₹{((item.price || 0) * item.quantity).toLocaleString()}</div>
-                  <button onClick={() => handleRemove(item.id)} className="text-slate-400 hover:text-rose-500 transition-colors flex items-center gap-1 text-sm font-bold"><Trash2 className="w-4 h-4" /> Remove</button>
+                  
+                  <div className="flex-1 text-center sm:text-left">
+                    <div className="text-xs font-bold text-slate-400 mb-1 uppercase">SKU: {item.sku}</div>
+                    <h3 className="text-lg font-bold text-slate-900 mb-2">{item.name}</h3>
+                    <div className="flex items-center justify-center sm:justify-start gap-2">
+                      <span className="text-sky-600 font-black">₹{(item.price || 0).toLocaleString()}</span>
+                      {hasDiscount && (
+                        <span className="text-xs font-bold text-slate-400 line-through">₹{(item.basePrice || 0).toLocaleString()}</span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col items-center sm:items-end gap-4 sm:border-l border-slate-100 sm:pl-6">
+                    <div className="flex items-center gap-3 bg-slate-50 border border-slate-200 rounded-xl px-2 py-1">
+                      <button onClick={() => handleUpdateQuantity(item.id, item.quantity - 1)} className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-sky-500 hover:bg-white rounded-lg transition-colors"><Minus className="w-4 h-4" /></button>
+                      <span className="text-sm font-bold text-slate-700 w-6 text-center">{item.quantity}</span>
+                      <button onClick={() => handleUpdateQuantity(item.id, item.quantity + 1)} className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-sky-500 hover:bg-white rounded-lg transition-colors"><Plus className="w-4 h-4" /></button>
+                    </div>
+                    <div className="text-lg font-black text-slate-900">₹{((item.price || 0) * item.quantity).toLocaleString()}</div>
+                    <button onClick={() => handleRemove(item.id)} className="text-slate-400 hover:text-rose-500 transition-colors flex items-center gap-1 text-sm font-bold"><Trash2 className="w-4 h-4" /> Remove</button>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
 
           <div className="lg:col-span-4">
@@ -150,6 +166,12 @@ export default function DealerCartPage() {
                   <span className="font-medium">Subtotal ({items.length} items)</span>
                   <span className="font-bold text-slate-900">₹{subtotal.toLocaleString()}</span>
                 </div>
+                {totalSavings > 0 && (
+                  <div className="flex items-center justify-between text-emerald-600">
+                    <span className="font-bold">Dealership Savings</span>
+                    <span className="font-bold">-₹{totalSavings.toLocaleString()}</span>
+                  </div>
+                )}
                 <div className="flex items-center justify-between text-slate-600">
                   <span className="font-medium">Tax (GST 18%)</span>
                   <span className="font-bold text-slate-900">₹{(subtotal * 0.18).toLocaleString()}</span>

@@ -100,16 +100,17 @@ export default function DealerDealershipsPage() {
               <tr className="bg-slate-50/50 border-b border-slate-100 text-xs uppercase tracking-wider text-slate-500 font-bold">
                 <th className="p-6">Product Details</th>
                 <th className="p-6">Requested Date</th>
+                <th className="p-6">Pricing & Discount</th>
                 <th className="p-6">Status</th>
                 <th className="p-6 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {loading ? (
-                <tr><td colSpan={4} className="p-12 text-center text-slate-400">Loading requests...</td></tr>
+                <tr><td colSpan={5} className="p-12 text-center text-slate-400">Loading requests...</td></tr>
               ) : requests.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="p-12 text-center text-slate-500">
+                  <td colSpan={5} className="p-12 text-center text-slate-500">
                     <PackageSearch className="w-12 h-12 mx-auto mb-3 text-slate-300" />
                     <p className="font-bold text-slate-900">No requests found</p>
                     <p className="text-sm">Browse the products catalog to request dealerships.</p>
@@ -132,6 +133,17 @@ export default function DealerDealershipsPage() {
                         <Clock className="w-4 h-4 text-slate-400" />
                         {new Date(req.requestedAt).toLocaleDateString()}
                       </span>
+                    </td>
+                    <td className="p-6">
+                      <p className="text-sm font-medium text-slate-500 line-through">₹{req.basePrice.toLocaleString()}</p>
+                      {req.status === 'APPROVED' ? (
+                        <p className="text-sm font-bold text-sky-600">
+                          ₹{(req.basePrice * (1 - req.discountPercentage / 100)).toLocaleString()} 
+                          <span className="text-xs text-slate-400 ml-1">({req.discountPercentage}% off)</span>
+                        </p>
+                      ) : (
+                        <p className="text-xs text-slate-400">Pending Deal</p>
+                      )}
                     </td>
                     <td className="p-6">
                       <span className={`px-3 py-1.5 rounded-full text-xs font-bold inline-flex items-center gap-1.5 ${
