@@ -274,13 +274,13 @@ export default function AdminCustomersPage() {
                         >
                           <Eye className="w-5 h-5" />
                         </button>
-                        <button 
+                        {/* <button 
                           onClick={() => handleOpenNotify('SINGLE', user)}
                           className="p-2 text-slate-400 hover:text-emerald-600 transition-colors"
                           title="Send Notification"
                         >
                           <Mail className="w-5 h-5" />
-                        </button>
+                        </button> */}
                         <button 
                           onClick={() => handleOpenStatus(user)}
                           className="p-2 text-slate-400 hover:text-amber-600 transition-colors"
